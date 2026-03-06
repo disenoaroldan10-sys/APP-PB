@@ -1,0 +1,194 @@
+import axios from 'axios';
+import { startOfMonth, endOfMonth, format, differenceInDays, addDays, parseISO, isAfter } from 'date-fns';
+
+const XM_API_URL = '/api/xm-proxy';
+
+export interface XmPriceData {
+  Date: string;
+  Hour: string;
+  Value: number;
+}
+
+export interface XmResponse {
+  Items: {
+    MetricId: string;
+    Entity: string;
+    Values: {
+      [key: string]: string | number;
+    }[];
+  }[];
+}
+
+const fetchChunk = async (startDate: string, endDate: string): Promise<XmPriceData[]> => {
+  console.log(`Fetching chunk: ${startDate} to ${endDate}`);
+  const response = await axios.post(XM_API_URL, {
+    MetricId: 'PrecBolsNaci', // Correct MetricId for "Precio de Bolsa Nacional"
+    StartDate: startDate,
+    EndDate: endDate,
+    Entity: 'Sistema',
+  });
+
+  console.log('XM API Response received for chunk');
+  const items = response.data.Items;
+  if (!items || items.length === 0) {
+    console.warn('No items found in XM response');
+    return [];
+  }
+
+  const result: XmPriceData[] = [];
+  
+  items.forEach((item: any) => {
+    const date = item.Date;
+    if (item.HourlyEntities && item.HourlyEntities.length > 0) {
+      const values = item.HourlyEntities[0].Values;
+      if (values) {
+        for (let i = 1; i <= 24; i++) {
+          const hourKey = `Hour${i.toString().padStart(2, '0')}`;
+          if (values[hourKey] !== undefined && values[hourKey] !== null) {
+            result.push({
+              Date: date,
+              Hour: `P${i - 1}`,
+              Value: parseFloat(values[hourKey]),
+            });
+          }
+        }
+      }
+    }
+  });
+  
+  console.log(`Parsed ${result.length} data points for chunk`);
+  return result;
+};
+
+export const fetchPrecioBolsa = async (startDate: string, endDate: string): Promise<XmPriceData[]> => {
+  try {
+    const start = parseISO(startDate);
+    const end = parseISO(endDate);
+    const days = differenceInDays(end, start) + 1;
+
+    if (days <= 30) {
+      return await fetchChunk(startDate, endDate);
+    }
+
+    // Split into chunks of 30 days
+    let currentStart = start;
+    let allData: XmPriceData[] = [];
+
+    while (!isAfter(currentStart, end)) {
+      let currentEnd = addDays(currentStart, 29);
+      if (isAfter(currentEnd, end)) {
+        currentEnd = end;
+      }
+
+      const chunkData = await fetchChunk(
+        format(currentStart, 'yyyy-MM-dd'),
+        format(currentEnd, 'yyyy-MM-dd')
+      );
+      allData = [...allData, ...chunkData];
+      currentStart = addDays(currentEnd, 1);
+    }
+
+    return allData;
+  } catch (error: any) {
+    console.error('Error fetching XM data:', error);
+    throw error;
+  }
+};
+
+export const listMetrics = async (): Promise<any> => {
+  try {
+    const response = await axios.post('/api/xm-proxy-lists', {
+      MetricId: 'ListadoMetricas'
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error listing metrics:', error);
+    return null;
+  }
+};
+
+export interface SINRealTimeData {
+  generation: number;
+  demand: number;
+  lastUpdate: string;
+  hourlyData: { hour: string; generation: number; demand: number }[];
+}
+
+export const fetchRealTimeSINData = async (): Promise<SINRealTimeData | null> => {
+  try {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const yesterday = format(addDays(new Date(), -1), 'yyyy-MM-dd');
+    
+    // Fetch both metrics for today and yesterday
+    const metrics = ['Gene', 'DemaReal'];
+    const results: any = {};
+
+    for (const metric of metrics) {
+      const response = await axios.post(XM_API_URL, {
+        MetricId: metric,
+        StartDate: yesterday,
+        EndDate: today,
+        Entity: 'Sistema',
+      });
+
+      const items = response.data.Items;
+      if (items && items.length > 0) {
+        // Get the most recent day with data
+        const lastDay = items[items.length - 1];
+        const values = lastDay.HourlyEntities[0].Values;
+        
+        // Find the last non-null hour
+        let lastValue = 0;
+        let lastHour = 0;
+        for (let i = 24; i >= 1; i--) {
+          const hourKey = `Hour${i.toString().padStart(2, '0')}`;
+          if (values[hourKey] !== undefined && values[hourKey] !== null && values[hourKey] !== 0) {
+            lastValue = parseFloat(values[hourKey]);
+            lastHour = i - 1;
+            break;
+          }
+        }
+
+        // Collect all hourly data for the last day
+        const hourly = [];
+        for (let i = 1; i <= 24; i++) {
+          const hourKey = `Hour${i.toString().padStart(2, '0')}`;
+          hourly.push({
+            hour: `P${i - 1}`,
+            value: values[hourKey] ? parseFloat(values[hourKey]) : 0
+          });
+        }
+
+        results[metric] = { value: lastValue, hour: lastHour, date: lastDay.Date, hourly };
+      }
+    }
+
+    if (results.Gene && results.DemaReal) {
+      const hourlyData = results.Gene.hourly.map((g: any, i: number) => ({
+        hour: g.hour,
+        generation: g.value,
+        demand: results.DemaReal.hourly[i].value
+      }));
+
+      return {
+        generation: results.Gene.value,
+        demand: results.DemaReal.value,
+        lastUpdate: `${results.Gene.date} ${results.Gene.hour}:00`,
+        hourlyData
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching real-time SIN data:', error);
+    return null;
+  }
+};
+
+export const getMonthRange = (year: number, month: number) => {
+  const date = new Date(year, month);
+  return {
+    start: format(startOfMonth(date), 'yyyy-MM-dd'),
+    end: format(endOfMonth(date), 'yyyy-MM-dd'),
+  };
+};
