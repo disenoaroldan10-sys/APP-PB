@@ -146,7 +146,16 @@ export default function App() {
         m.id === id ? { ...m, data, average, loading: false } : m
       ));
     } catch (err: any) {
-      const errorMessage = err.response?.data?.details || err.response?.data?.error || 'Error al cargar datos';
+      let errorMessage = 'Error al cargar datos';
+      if (err.response?.data) {
+        const data = err.response.data;
+        errorMessage = typeof data.details === 'string' ? data.details : 
+                       typeof data.error === 'string' ? data.error : 
+                       'Error en la respuesta del servidor';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
       setSelectedMonths(prev => prev.map(m => 
         m.id === id ? { ...m, loading: false, error: errorMessage } : m
       ));
