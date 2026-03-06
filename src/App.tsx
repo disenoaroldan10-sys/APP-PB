@@ -192,29 +192,21 @@ export default function App() {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div 
-            className="flex items-center gap-3 cursor-pointer" 
-            onClick={() => setCurrentView('dashboard')}
-          >
-            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-100 overflow-hidden border border-gray-100 p-1.5">
+          <div className="flex items-center gap-3">
+            <div 
+              className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-100 overflow-hidden border border-gray-100 p-1.5 cursor-pointer"
+              onClick={() => setCurrentView('dashboard')}
+            >
               <Logo />
             </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-gray-900">Precios en bolsa mercado Eléctrico Colombiano</h1>
-              <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-400">Consultor de Mercado XM</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-4">
+
             {/* Navigation Dropdown */}
             <div className="relative group">
-              <button className="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-100 transition-all text-sm font-bold text-gray-700">
-                <Menu className="w-4 h-4 text-indigo-500" />
-                Módulos del Sistema
-                <ChevronDown className="w-3 h-3 text-gray-400 group-hover:text-indigo-600 transition-colors" />
+              <button className="p-2 hover:bg-gray-50 rounded-xl transition-all text-gray-400 hover:text-indigo-600">
+                <Menu className="w-5 h-5" />
               </button>
               
-              <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all transform origin-top-right scale-95 group-hover:scale-100 z-[100]">
+              <div className="absolute left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all transform origin-top-left scale-95 group-hover:scale-100 z-[100]">
                 <div className="px-3 py-2 mb-1">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Navegación</p>
                 </div>
@@ -251,6 +243,13 @@ export default function App() {
               </div>
             </div>
 
+            <div className="cursor-pointer" onClick={() => setCurrentView('dashboard')}>
+              <h1 className="text-xl font-bold tracking-tight text-gray-900">Precios en bolsa mercado Eléctrico Colombiano</h1>
+              <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-400">Consultor de Mercado XM</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
               Conectado a Datos
@@ -412,7 +411,18 @@ export default function App() {
 
                 {/* Selected Months List */}
                 <section className="space-y-3">
-                  <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest px-2">Meses en Análisis</h3>
+                  <div className="flex items-center justify-between px-2">
+                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Meses en Análisis</h3>
+                    {selectedMonths.length > 0 && (
+                      <button 
+                        onClick={() => setSelectedMonths([])}
+                        className="text-[10px] font-bold text-red-500 hover:text-red-600 uppercase tracking-widest flex items-center gap-1 transition-colors group/clear"
+                      >
+                        <Trash2 className="w-3 h-3 transition-transform group-hover/clear:scale-110" />
+                        Borrar todo
+                      </button>
+                    )}
+                  </div>
                   <AnimatePresence mode="popLayout">
                     {selectedMonths.length === 0 ? (
                       <motion.div 

@@ -1,5 +1,5 @@
 {
   "name": "Energía Pro - Consultor de Mercado XM",
   "description": "Analizador de precios de bolsa del mercado eléctrico colombiano (XM API).",
-  "requestFramePermissions": ["geolocation"]
+  "requestFramePermissions": []
 }
