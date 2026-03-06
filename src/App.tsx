@@ -402,6 +402,7 @@ export default function App() {
                       return (
                         <button
                           key={month}
+                          translate="no"
                           onClick={() => handleAddMonth(currentYear, index)}
                           disabled={isSelected}
                           className={cn(
@@ -464,7 +465,7 @@ export default function App() {
                                 style={{ backgroundColor: colors[idx % colors.length] }} 
                               />
                               <div>
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-tight">{month.label}</p>
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-tight" translate="no">{month.label}</p>
                                 {month.loading ? (
                                   <div className="flex items-center gap-1 text-[10px] text-indigo-500">
                                     <Loader2 className="w-3 h-3 animate-spin" />
