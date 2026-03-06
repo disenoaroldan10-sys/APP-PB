@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { startOfMonth, endOfMonth, format, differenceInDays, addDays, parseISO, isAfter } from 'date-fns';
 
-const XM_API_URL = '/api/xm-proxy';
+const XM_API_URL = 'https://cors-anywhere.herokuapp.com/https://api.xm.com.co/investigador/red_inteligente/precios_bolsa_nacional/promedio_horario';
 
 export interface XmPriceData {
   Date: string;
