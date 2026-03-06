@@ -93,6 +93,11 @@ export default function App() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [showYearMatrix, setShowYearMatrix] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     if (notification) {
@@ -508,10 +513,14 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="flex-1 w-full min-h-[400px]">
-                    {selectedMonths.some(m => !m.loading && !m.error && m.data.length > 0) ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <div className="flex-1 w-full min-h-[400px] relative">
+                    {isMounted && selectedMonths.some(m => !m.loading && !m.error && m.data.length > 0) ? (
+                      <ResponsiveContainer key={`resp-cont-${selectedMonths.length}`} width="100%" height="100%" debounce={100}>
+                        <LineChart 
+                          key={`chart-${selectedMonths.length}`}
+                          data={chartData} 
+                          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                        >
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                           <XAxis 
                             dataKey="hour" 
