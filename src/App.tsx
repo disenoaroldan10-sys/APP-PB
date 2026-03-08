@@ -41,6 +41,25 @@ const Logo = ({ className }: { className?: string }) => (
   <TrendingUp className={cn("w-full h-full text-indigo-600", className)} />
 );
 
+const XmLogo = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 100 32" className={cn("h-8 w-auto", className)} xmlns="http://www.w3.org/2000/svg">
+    <g fill="none" stroke="#FF6B00" strokeLinecap="round" strokeLinejoin="round">
+      {/* 4 líneas finas de la izquierda (efecto de movimiento) */}
+      <path d="M4 10L10 16L4 22" strokeWidth="0.8" opacity="0.8" />
+      <path d="M8 10L14 16L8 22" strokeWidth="0.8" opacity="0.8" />
+      <path d="M12 10L18 16L12 22" strokeWidth="0.8" opacity="0.8" />
+      <path d="M16 10L22 16L16 22" strokeWidth="0.8" opacity="0.8" />
+      
+      {/* La X estilizada */}
+      <path d="M28 10L40 22" strokeWidth="5.5" />
+      <path d="M40 10L28 22" strokeWidth="5.5" />
+      
+      {/* La M redondeada */}
+      <path d="M48 22V15C48 12 50 10 53 10C56 10 58 12 58 15V22M58 22V15C58 12 60 10 63 10C66 10 68 12 68 22" strokeWidth="5.5" />
+    </g>
+  </svg>
+);
+
 interface SelectedMonth {
   id: string;
   year: number;
@@ -238,7 +257,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="cursor-pointer" onClick={() => setCurrentView('dashboard')}>
+            <div>
               <h1 className="text-xl font-bold tracking-tight text-gray-900">
                 {currentView === 'dashboard' && "Precios en bolsa mercado Eléctrico Colombiano"}
                 {currentView === 'calculos' && "Cálculos de generación y facturación"}
@@ -246,15 +265,29 @@ export default function App() {
                 {currentView === 'cu' && "Valor del CU"}
                 {currentView === 'fasoriales' && "Cálculos de diagramas fasoriales"}
               </h1>
-              <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-400">Consultor de Mercado XM</p>
+              {currentView === 'dashboard' && (
+                <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-400">Consultor de Mercado XM</p>
+              )}
             </div>
           </div>
           
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-              Conectado a Datos
-            </div>
+            {(() => {
+              const configs: Record<string, { label: string; color: string }> = {
+                dashboard: { label: 'Mercado Eléctrico', color: 'bg-emerald-500' },
+                calculos: { label: 'Gestión de Facturación', color: 'bg-amber-500' },
+                analizador: { label: 'Calidad de Potencia', color: 'bg-blue-500' },
+                cu: { label: 'Análisis Tarifario', color: 'bg-rose-500' },
+                fasoriales: { label: 'Ingeniería Vectorial', color: 'bg-violet-500' }
+              };
+              const config = configs[currentView] || configs.dashboard;
+              return (
+                <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-gray-100 shadow-sm">
+                  <div className={cn("w-2 h-2 rounded-full animate-pulse", config.color)} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-600">{config.label}</span>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </header>
@@ -657,30 +690,24 @@ export default function App() {
 
       {/* Footer */}
       <footer className="max-w-7xl mx-auto px-6 py-12 border-t border-gray-100 mt-12">
-        <div className="flex flex-col items-center justify-center gap-4 text-center">
-          {currentView !== 'fasoriales' && (
-            <div className="flex flex-col items-center gap-2">
-              <div className="flex items-center gap-3">
+        <div className="flex flex-col items-center justify-center gap-6 text-center">
+          {currentView === 'dashboard' && (
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex flex-col items-center gap-2">
                 <p className="text-xs text-gray-400 font-medium">
-                  Datos extraidos de XM "sinergox" (Operador del Mercado Eléctrico Colombiano)
+                  datos extraidos de XM
                 </p>
-                <div className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-lg border border-gray-100">
-                  <div className="flex -space-x-1">
-                    <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                  </div>
-                  <span className="text-[9px] font-black text-gray-800 tracking-tighter">XM</span>
-                </div>
+                <XmLogo className="h-6" />
               </div>
-              <p className="text-[10px] text-gray-300 font-bold uppercase tracking-widest">
-                Copyright 2026 todos los derechos reservados al autor
+              <p className="text-[10px] text-gray-300 font-bold uppercase tracking-widest leading-relaxed">
+                Copyright 2026 <br /> todos los derechos reservados al autor
               </p>
             </div>
           )}
           
-          {currentView === 'fasoriales' && (
-            <p className="text-[10px] text-gray-300 font-bold uppercase tracking-widest">
-              Copyright 2026 todos los derechos reservados al autor
+          {currentView !== 'dashboard' && (
+            <p className="text-[10px] text-gray-300 font-bold uppercase tracking-widest leading-relaxed">
+              Copyright 2026 <br /> todos los derechos reservados al autor
             </p>
           )}
         </div>

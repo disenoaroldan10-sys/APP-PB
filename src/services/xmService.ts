@@ -95,6 +95,21 @@ export const fetchPrecioBolsa = async (startDate: string, endDate: string): Prom
   }
 };
 
+export const getMonthlyPrices = async (year: number, month: number) => {
+  const { start, end } = getMonthRange(year, month);
+  const data = await fetchPrecioBolsa(start, end);
+  
+  // Group by hour and average
+  const hourlyAverages = Array.from({ length: 24 }, (_, hour) => {
+    const hourKey = `P${hour}`;
+    const values = data.filter(d => d.Hour === hourKey).map(d => d.Value);
+    const avg = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+    return { hour, price: avg };
+  });
+
+  return hourlyAverages;
+};
+
 export const listMetrics = async (): Promise<any> => {
   try {
     const response = await axios.post('/api/xm-proxy-lists', {
@@ -191,4 +206,12 @@ export const getMonthRange = (year: number, month: number) => {
     start: format(startOfMonth(date), 'yyyy-MM-dd'),
     end: format(endOfMonth(date), 'yyyy-MM-dd'),
   };
+};
+
+export const xmService = {
+  fetchPrecioBolsa,
+  getMonthlyPrices,
+  listMetrics,
+  fetchRealTimeSINData,
+  getMonthRange
 };
