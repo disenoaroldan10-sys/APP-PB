@@ -29,51 +29,16 @@ import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { fetchPrecioBolsa, getMonthRange, XmPriceData, listMetrics } from './services/xmService';
+import PhasorCalculator from './components/PhasorCalculator';
 
 // Utility for tailwind classes
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// Custom Logo Component representing Growth + Money
+// Custom Logo Component representing Growth
 const Logo = ({ className }: { className?: string }) => (
-  <svg 
-    viewBox="0 0 100 100" 
-    className={cn("w-full h-full", className)}
-    fill="none" 
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    {/* Coin Background */}
-    <circle cx="45" cy="45" r="35" fill="#FBBF24" />
-    <circle cx="45" cy="45" r="30" fill="#F59E0B" />
-    
-    {/* Dollar Sign */}
-    <text 
-      x="45" 
-      y="58" 
-      textAnchor="middle" 
-      fill="white" 
-      style={{ fontSize: '40px', fontWeight: 'bold', fontFamily: 'Arial' }}
-    >
-      $
-    </text>
-    
-    {/* Trending Arrow */}
-    <path 
-      d="M20 80 L45 55 L60 70 L90 30" 
-      stroke="#10B981" 
-      strokeWidth="10" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    />
-    <path 
-      d="M75 30 H90 V45" 
-      stroke="#10B981" 
-      strokeWidth="10" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    />
-  </svg>
+  <TrendingUp className={cn("w-full h-full text-indigo-600", className)} />
 );
 
 interface SelectedMonth {
@@ -88,7 +53,7 @@ interface SelectedMonth {
 }
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'calculos' | 'analizador' | 'cu'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'calculos' | 'analizador' | 'cu' | 'fasoriales'>('dashboard');
   const [selectedMonths, setSelectedMonths] = useState<SelectedMonth[]>([]);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [showYearMatrix, setShowYearMatrix] = useState(false);
@@ -216,14 +181,20 @@ export default function App() {
 
             {/* Navigation Dropdown */}
             <div className="relative group">
-              <button className="p-2 hover:bg-gray-50 rounded-xl transition-all text-gray-400 hover:text-indigo-600">
+              <button className="p-2 hover:bg-blue-50 rounded-xl transition-all text-blue-600 hover:text-blue-700">
                 <Menu className="w-5 h-5" />
               </button>
               
               <div className="absolute left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all transform origin-top-left scale-95 group-hover:scale-100 z-[100]">
-                <div className="px-3 py-2 mb-1">
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Navegación</p>
-                </div>
+                <button 
+                  onClick={() => setCurrentView('dashboard')}
+                  className={cn(
+                    "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center justify-between group/item",
+                    currentView === 'dashboard' ? "bg-blue-50 text-blue-600" : "hover:bg-blue-50 text-gray-700"
+                  )}
+                >
+                  <span className={cn("text-sm font-bold group-hover/item:text-blue-600", currentView === 'dashboard' && "text-blue-600")}>Precios en bolsa</span>
+                </button>
                 <button 
                   onClick={() => setCurrentView('calculos')}
                   className={cn(
@@ -232,7 +203,6 @@ export default function App() {
                   )}
                 >
                   <span className={cn("text-sm font-bold group-hover/item:text-indigo-600", currentView === 'calculos' && "text-indigo-600")}>Cálculos de generación y facturación</span>
-                  <ExternalLink className="w-3 h-3 text-gray-300 group-hover/item:text-indigo-400" />
                 </button>
                 <button 
                   onClick={() => setCurrentView('analizador')}
@@ -242,7 +212,6 @@ export default function App() {
                   )}
                 >
                   <span className={cn("text-sm font-bold group-hover/item:text-indigo-600", currentView === 'analizador' && "text-indigo-600")}>Datos analizador de redes</span>
-                  <ExternalLink className="w-3 h-3 text-gray-300 group-hover/item:text-indigo-400" />
                 </button>
                 <button 
                   onClick={() => setCurrentView('cu')}
@@ -252,13 +221,31 @@ export default function App() {
                   )}
                 >
                   <span className={cn("text-sm font-bold group-hover/item:text-indigo-600", currentView === 'cu' && "text-indigo-600")}>Valor del CU</span>
-                  <ExternalLink className="w-3 h-3 text-gray-300 group-hover/item:text-indigo-400" />
+                </button>
+
+                <div className="px-3 py-2 mt-2 mb-1 border-t border-gray-50 pt-3">
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Cálculos eléctricos</p>
+                </div>
+                <button 
+                  onClick={() => setCurrentView('fasoriales')}
+                  className={cn(
+                    "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center justify-between group/item",
+                    currentView === 'fasoriales' ? "bg-indigo-50 text-indigo-600" : "hover:bg-indigo-50 text-gray-700"
+                  )}
+                >
+                  <span className={cn("text-sm font-bold group-hover/item:text-indigo-600", currentView === 'fasoriales' && "text-indigo-600")}>Cálculos de diagramas fasoriales</span>
                 </button>
               </div>
             </div>
 
             <div className="cursor-pointer" onClick={() => setCurrentView('dashboard')}>
-              <h1 className="text-xl font-bold tracking-tight text-gray-900">Precios en bolsa mercado Eléctrico Colombiano</h1>
+              <h1 className="text-xl font-bold tracking-tight text-gray-900">
+                {currentView === 'dashboard' && "Precios en bolsa mercado Eléctrico Colombiano"}
+                {currentView === 'calculos' && "Cálculos de generación y facturación"}
+                {currentView === 'analizador' && "Datos analizador de redes"}
+                {currentView === 'cu' && "Valor del CU"}
+                {currentView === 'fasoriales' && "Cálculos de diagramas fasoriales"}
+              </h1>
               <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-400">Consultor de Mercado XM</p>
             </div>
           </div>
@@ -614,6 +601,15 @@ export default function App() {
                 </div>
               </div>
             </motion.div>
+          ) : currentView === 'fasoriales' ? (
+            <motion.div
+              key="fasoriales"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <PhasorCalculator />
+            </motion.div>
           ) : (
             <motion.div
               key="empty-view"
@@ -661,20 +657,32 @@ export default function App() {
 
       {/* Footer */}
       <footer className="max-w-7xl mx-auto px-6 py-12 border-t border-gray-100 mt-12">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2 opacity-90">
-            <div className="w-6 h-6">
-              <Logo />
+        <div className="flex flex-col items-center justify-center gap-4 text-center">
+          {currentView !== 'fasoriales' && (
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-3">
+                <p className="text-xs text-gray-400 font-medium">
+                  Datos extraidos de XM "sinergox" (Operador del Mercado Eléctrico Colombiano)
+                </p>
+                <div className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-lg border border-gray-100">
+                  <div className="flex -space-x-1">
+                    <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                  </div>
+                  <span className="text-[9px] font-black text-gray-800 tracking-tighter">XM</span>
+                </div>
+              </div>
+              <p className="text-[10px] text-gray-300 font-bold uppercase tracking-widest">
+                Copyright 2026 todos los derechos reservados al autor
+              </p>
             </div>
-            <span className="text-sm font-bold">Precios en bolsa mercado Eléctrico Colombiano</span>
-          </div>
-          <p className="text-xs text-gray-400">
-            Datos extraidos de XM "sinergox" (Operador del Mercado Eléctrico Colombiano).
-          </p>
-          <div className="flex gap-4">
-            <div className="w-8 h-8 rounded-full bg-gray-100" />
-            <div className="w-8 h-8 rounded-full bg-gray-100" />
-          </div>
+          )}
+          
+          {currentView === 'fasoriales' && (
+            <p className="text-[10px] text-gray-300 font-bold uppercase tracking-widest">
+              Copyright 2026 todos los derechos reservados al autor
+            </p>
+          )}
         </div>
       </footer>
     </div>
