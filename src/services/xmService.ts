@@ -131,64 +131,77 @@ export interface SINRealTimeData {
 
 export const fetchRealTimeSINData = async (): Promise<SINRealTimeData | null> => {
   try {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const yesterday = format(addDays(new Date(), -1), 'yyyy-MM-dd');
+    const today = new Date();
+    const startDate = format(addDays(today, -3), 'yyyy-MM-dd');
+    const endDate = format(today, 'yyyy-MM-dd');
     
-    // Fetch both metrics for today and yesterday
-    const metrics = ['Gene', 'DemaReal'];
+    // Fetch both metrics with fallbacks
     const results: any = {};
-
-    for (const metric of metrics) {
-      const response = await axios.post(XM_API_URL, {
-        MetricId: metric,
-        StartDate: yesterday,
-        EndDate: today,
-        Entity: 'Sistema',
-      });
-
-      const items = response.data.Items;
-      if (items && items.length > 0) {
-        // Get the most recent day with data
-        const lastDay = items[items.length - 1];
-        const values = lastDay.HourlyEntities[0].Values;
-        
-        // Find the last non-null hour
-        let lastValue = 0;
-        let lastHour = 0;
-        for (let i = 24; i >= 1; i--) {
-          const hourKey = `Hour${i.toString().padStart(2, '0')}`;
-          if (values[hourKey] !== undefined && values[hourKey] !== null && values[hourKey] !== 0) {
-            lastValue = parseFloat(values[hourKey]);
-            lastHour = i - 1;
-            break;
-          }
-        }
-
-        // Collect all hourly data for the last day
-        const hourly = [];
-        for (let i = 1; i <= 24; i++) {
-          const hourKey = `Hour${i.toString().padStart(2, '0')}`;
-          hourly.push({
-            hour: `P${i - 1}`,
-            value: values[hourKey] ? parseFloat(values[hourKey]) : 0
+    const fetchMetricWithFallbacks = async (metricIds: string[]) => {
+      for (const metricId of metricIds) {
+        try {
+          console.log(`Attempting to fetch metric: ${metricId}`);
+          const response = await axios.post(XM_API_URL, {
+            MetricId: metricId,
+            StartDate: startDate,
+            EndDate: endDate,
+            Entity: 'Sistema',
           });
+
+          const items = response.data.Items;
+          if (items && items.length > 0) {
+            // Find the last item that has values
+            let lastDayWithData = null;
+            for (let i = items.length - 1; i >= 0; i--) {
+              const item = items[i];
+              const hasHourly = item.HourlyEntities && item.HourlyEntities.length > 0 && item.HourlyEntities[0].Values;
+              const hasDirect = item.Values && Object.keys(item.Values).length > 0;
+              
+              if (hasHourly || hasDirect) {
+                lastDayWithData = item;
+                break;
+              }
+            }
+
+            if (lastDayWithData) {
+              const values = lastDayWithData.HourlyEntities ? lastDayWithData.HourlyEntities[0].Values : lastDayWithData.Values;
+              let lastValue = 0;
+              let lastHour = 0;
+              const hourly = [];
+
+              for (let i = 1; i <= 24; i++) {
+                const hourKey = `Hour${i.toString().padStart(2, '0')}`;
+                const val = values[hourKey] !== undefined && values[hourKey] !== null ? parseFloat(values[hourKey]) : 0;
+                hourly.push({ hour: `P${i - 1}`, value: val });
+                if (val > 0) {
+                  lastValue = val;
+                  lastHour = i - 1;
+                }
+              }
+              return { value: lastValue, hour: lastHour, date: lastDayWithData.Date, hourly };
+            }
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch ${metricId}:`, e);
         }
-
-        results[metric] = { value: lastValue, hour: lastHour, date: lastDay.Date, hourly };
       }
-    }
+      return null;
+    };
 
-    if (results.Gene && results.DemaReal) {
-      const hourlyData = results.Gene.hourly.map((g: any, i: number) => ({
+    results.generation = await fetchMetricWithFallbacks(['Gene', 'Generacion', 'GenReal', 'GeneracionReal', 'GeneracionRealSistema']);
+    results.demand = await fetchMetricWithFallbacks(['DemaReal', 'DemandaReal', 'Demanda', 'DemandaRealSistema']);
+
+    if (results.generation && results.demand) {
+      const hourlyData = results.generation.hourly.map((g: any, i: number) => ({
         hour: g.hour,
         generation: g.value,
-        demand: results.DemaReal.hourly[i].value
+        demand: results.demand.hourly[i].value
       }));
 
       return {
-        generation: results.Gene.value,
-        demand: results.DemaReal.value,
-        lastUpdate: `${results.Gene.date} ${results.Gene.hour}:00`,
+        generation: results.generation.value,
+        demand: results.demand.value,
+        lastUpdate: `${results.generation.date} ${results.generation.hour.toString().padStart(2, '0')}:00`,
         hourlyData
       };
     }

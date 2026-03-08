@@ -23,12 +23,14 @@ import {
   AlertCircle,
   ChevronDown,
   Menu,
-  ExternalLink
+  ExternalLink,
+  Activity,
+  RotateCcw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { fetchPrecioBolsa, getMonthRange, XmPriceData, listMetrics } from './services/xmService';
+import { fetchPrecioBolsa, getMonthRange, XmPriceData, listMetrics, fetchRealTimeSINData, SINRealTimeData } from './services/xmService';
 import PhasorCalculator from './components/PhasorCalculator';
 
 // Utility for tailwind classes
@@ -72,12 +74,44 @@ interface SelectedMonth {
 }
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'calculos' | 'analizador' | 'cu' | 'fasoriales'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'calculos' | 'analizador' | 'cu' | 'fasoriales' | 'demanda'>('dashboard');
   const [selectedMonths, setSelectedMonths] = useState<SelectedMonth[]>([]);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [showYearMatrix, setShowYearMatrix] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [realTimeData, setRealTimeData] = useState<SINRealTimeData | null>(null);
+  const [isRealTimeLoading, setIsRealTimeLoading] = useState(false);
+  const [realTimeError, setRealTimeError] = useState<string | null>(null);
+
+  const loadRealTimeData = async () => {
+    setIsRealTimeLoading(true);
+    setRealTimeError(null);
+    try {
+      const data = await fetchRealTimeSINData();
+      if (data) {
+        setRealTimeData(data);
+      } else {
+        setRealTimeError('No se pudieron obtener datos en tiempo real de XM. Verifique la disponibilidad del servicio.');
+      }
+    } catch (error) {
+      console.error('Error loading real-time data:', error);
+      setRealTimeError('Error de conexión con el servidor de datos.');
+    } finally {
+      setIsRealTimeLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentView === 'demanda') {
+      loadRealTimeData();
+      
+      // Refresh every 5 minutes
+      const interval = setInterval(loadRealTimeData, 5 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+  }, [currentView]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -199,75 +233,121 @@ export default function App() {
             </div>
 
             {/* Navigation Dropdown */}
-            <div className="relative group">
-              <button className="p-2 hover:bg-blue-50 rounded-xl transition-all text-blue-600 hover:text-blue-700">
+            <div className="relative">
+              <button 
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className={cn(
+                  "p-2 rounded-xl transition-all",
+                  isMenuOpen ? "bg-blue-100 text-blue-700" : "hover:bg-blue-50 text-blue-600 hover:text-blue-700"
+                )}
+              >
                 <Menu className="w-5 h-5" />
               </button>
               
-              <div className="absolute left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all transform origin-top-left scale-95 group-hover:scale-100 z-[100]">
-                <button 
-                  onClick={() => setCurrentView('dashboard')}
-                  className={cn(
-                    "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center justify-between group/item",
-                    currentView === 'dashboard' ? "bg-blue-50 text-blue-600" : "hover:bg-blue-50 text-gray-700"
-                  )}
-                >
-                  <span className={cn("text-sm font-bold group-hover/item:text-blue-600", currentView === 'dashboard' && "text-blue-600")}>Precios en bolsa</span>
-                </button>
-                <button 
-                  onClick={() => setCurrentView('calculos')}
-                  className={cn(
-                    "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center justify-between group/item",
-                    currentView === 'calculos' ? "bg-indigo-50 text-indigo-600" : "hover:bg-indigo-50 text-gray-700"
-                  )}
-                >
-                  <span className={cn("text-sm font-bold group-hover/item:text-indigo-600", currentView === 'calculos' && "text-indigo-600")}>Cálculos de generación y facturación</span>
-                </button>
-                <button 
-                  onClick={() => setCurrentView('analizador')}
-                  className={cn(
-                    "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center justify-between group/item",
-                    currentView === 'analizador' ? "bg-indigo-50 text-indigo-600" : "hover:bg-indigo-50 text-gray-700"
-                  )}
-                >
-                  <span className={cn("text-sm font-bold group-hover/item:text-indigo-600", currentView === 'analizador' && "text-indigo-600")}>Datos analizador de redes</span>
-                </button>
-                <button 
-                  onClick={() => setCurrentView('cu')}
-                  className={cn(
-                    "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center justify-between group/item",
-                    currentView === 'cu' ? "bg-indigo-50 text-indigo-600" : "hover:bg-indigo-50 text-gray-700"
-                  )}
-                >
-                  <span className={cn("text-sm font-bold group-hover/item:text-indigo-600", currentView === 'cu' && "text-indigo-600")}>Valor del CU</span>
-                </button>
+              <AnimatePresence>
+                {isMenuOpen && (
+                  <>
+                    {/* Backdrop to close menu when clicking outside */}
+                    <div 
+                      className="fixed inset-0 z-[90]" 
+                      onClick={() => setIsMenuOpen(false)} 
+                    />
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 z-[100] origin-top-left"
+                    >
+                      <button 
+                        onClick={() => { setCurrentView('dashboard'); setIsMenuOpen(false); }}
+                        className={cn(
+                          "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center justify-between group/item",
+                          currentView === 'dashboard' ? "bg-blue-50 text-blue-600" : "hover:bg-blue-50 text-gray-700"
+                        )}
+                      >
+                        <span className={cn("text-sm font-bold group-hover/item:text-blue-600", currentView === 'dashboard' && "text-blue-600")}>Precios en bolsa</span>
+                      </button>
+                      <button 
+                        onClick={() => { setCurrentView('calculos'); setIsMenuOpen(false); }}
+                        className={cn(
+                          "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center justify-between group/item",
+                          currentView === 'calculos' ? "bg-indigo-50 text-indigo-600" : "hover:bg-indigo-50 text-gray-700"
+                        )}
+                      >
+                        <span className={cn("text-sm font-bold group-hover/item:text-indigo-600", currentView === 'calculos' && "text-indigo-600")}>Cálculos de generación y facturación</span>
+                      </button>
+                      <button 
+                        onClick={() => { setCurrentView('analizador'); setIsMenuOpen(false); }}
+                        className={cn(
+                          "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center justify-between group/item",
+                          currentView === 'analizador' ? "bg-indigo-50 text-indigo-600" : "hover:bg-indigo-50 text-gray-700"
+                        )}
+                      >
+                        <span className={cn("text-sm font-bold group-hover/item:text-indigo-600", currentView === 'analizador' && "text-indigo-600")}>Datos analizador de redes</span>
+                      </button>
+                      <button 
+                        onClick={() => { setCurrentView('cu'); setIsMenuOpen(false); }}
+                        className={cn(
+                          "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center justify-between group/item",
+                          currentView === 'cu' ? "bg-indigo-50 text-indigo-600" : "hover:bg-indigo-50 text-gray-700"
+                        )}
+                      >
+                        <span className={cn("text-sm font-bold group-hover/item:text-indigo-600", currentView === 'cu' && "text-indigo-600")}>Valor del CU</span>
+                      </button>
 
-                <div className="px-3 py-2 mt-2 mb-1 border-t border-gray-50 pt-3">
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Cálculos eléctricos</p>
-                </div>
-                <button 
-                  onClick={() => setCurrentView('fasoriales')}
-                  className={cn(
-                    "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center justify-between group/item",
-                    currentView === 'fasoriales' ? "bg-indigo-50 text-indigo-600" : "hover:bg-indigo-50 text-gray-700"
-                  )}
-                >
-                  <span className={cn("text-sm font-bold group-hover/item:text-indigo-600", currentView === 'fasoriales' && "text-indigo-600")}>Cálculos de diagramas fasoriales</span>
-                </button>
-              </div>
+                      <button 
+                        onClick={() => { setCurrentView('demanda'); setIsMenuOpen(false); }}
+                        className={cn(
+                          "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center justify-between group/item",
+                          currentView === 'demanda' ? "bg-indigo-50 text-indigo-600" : "hover:bg-indigo-50 text-gray-700"
+                        )}
+                      >
+                        <span className={cn("text-sm font-bold group-hover/item:text-indigo-600", currentView === 'demanda' && "text-indigo-600")}>Demanda y generación tiempo real</span>
+                      </button>
+
+                      <div className="px-3 py-2 mt-2 mb-1 border-t border-gray-50 pt-3">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Cálculos eléctricos</p>
+                      </div>
+                      <button 
+                        onClick={() => { setCurrentView('fasoriales'); setIsMenuOpen(false); }}
+                        className={cn(
+                          "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center justify-between group/item",
+                          currentView === 'fasoriales' ? "bg-indigo-50 text-indigo-600" : "hover:bg-indigo-50 text-gray-700"
+                        )}
+                      >
+                        <span className={cn("text-sm font-bold group-hover/item:text-indigo-600", currentView === 'fasoriales' && "text-indigo-600")}>Cálculos de diagramas fasoriales</span>
+                      </button>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
             </div>
 
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-gray-900">
-                {currentView === 'dashboard' && "Precios en bolsa mercado Eléctrico Colombiano"}
-                {currentView === 'calculos' && "Cálculos de generación y facturación"}
-                {currentView === 'analizador' && "Datos analizador de redes"}
-                {currentView === 'cu' && "Valor del CU"}
-                {currentView === 'fasoriales' && "Cálculos de diagramas fasoriales"}
-              </h1>
-              {currentView === 'dashboard' && (
-                <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-400">Consultor de Mercado XM</p>
-              )}
+            <div className="flex items-center gap-4">
+              <div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-xl font-bold tracking-tight text-gray-900">
+                    {currentView === 'dashboard' && "Precios en bolsa mercado Eléctrico Colombiano"}
+                    {currentView === 'calculos' && "Cálculos de generación y facturación"}
+                    {currentView === 'analizador' && "Datos analizador de redes"}
+                    {currentView === 'cu' && "Valor del CU"}
+                    {currentView === 'fasoriales' && "Cálculos de diagramas fasoriales"}
+                    {currentView === 'demanda' && "Demanda y generación tiempo real"}
+                  </h1>
+                  {currentView === 'dashboard' && (
+                    <button 
+                      onClick={() => setCurrentView('demanda')}
+                      className="hidden sm:flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-3 py-1.5 rounded-xl border border-indigo-100 transition-all group"
+                    >
+                      <Activity className="w-4 h-4 transition-transform group-hover:scale-110" />
+                      <span className="text-[10px] font-black uppercase tracking-wider">Demanda y generación tiempo real</span>
+                    </button>
+                  )}
+                </div>
+                {currentView === 'dashboard' && (
+                  <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-400">Consultor de Mercado XM</p>
+                )}
+              </div>
             </div>
           </div>
           
@@ -278,7 +358,8 @@ export default function App() {
                 calculos: { label: 'Gestión de Facturación', color: 'bg-amber-500' },
                 analizador: { label: 'Calidad de Potencia', color: 'bg-blue-500' },
                 cu: { label: 'Análisis Tarifario', color: 'bg-rose-500' },
-                fasoriales: { label: 'Ingeniería Vectorial', color: 'bg-violet-500' }
+                fasoriales: { label: 'Ingeniería Vectorial', color: 'bg-violet-500' },
+                demanda: { label: 'Operación en Tiempo Real', color: 'bg-orange-500' }
               };
               const config = configs[currentView] || configs.dashboard;
               return (
@@ -520,7 +601,7 @@ export default function App() {
 
               {/* Right Content: Visualization */}
               <div className="lg:col-span-8 space-y-6">
-                <section className="bg-white rounded-[32px] p-8 shadow-sm border border-gray-100 h-full min-h-[500px] flex flex-col">
+                <section className="bg-white rounded-[32px] p-8 shadow-sm border border-gray-100 h-full min-h-[500px] lg:min-h-[700px] xl:min-h-[800px] flex flex-col">
                   <div className="flex items-center justify-between mb-8">
                     <div>
                       <h2 className="text-2xl font-bold tracking-tight">Precio de Bolsa Horario</h2>
@@ -534,7 +615,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="flex-1 w-full min-h-[400px] relative">
+                  <div className="flex-1 w-full min-h-[400px] lg:min-h-[550px] xl:min-h-[650px] relative">
                     {isMounted && selectedMonths.some(m => !m.loading && !m.error && m.data.length > 0) ? (
                       <ResponsiveContainer key={`resp-cont-${selectedMonths.length}`} width="100%" height="100%" debounce={100}>
                         <LineChart 
@@ -642,6 +723,188 @@ export default function App() {
               exit={{ opacity: 0, y: -20 }}
             >
               <PhasorCalculator />
+            </motion.div>
+          ) : currentView === 'demanda' ? (
+            <motion.div
+              key="demanda"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-8"
+            >
+              <div className="bg-white rounded-[40px] p-8 shadow-sm border border-gray-100">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 bg-orange-50 rounded-2xl flex items-center justify-center">
+                      <Activity className="w-8 h-8 text-orange-500" />
+                    </div>
+                    <div>
+                      <h2 className="text-3xl font-black tracking-tight text-gray-900">
+                        Demanda y Generación en Tiempo Real
+                      </h2>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-gray-500 text-sm">
+                          Estado actual del Sistema Interconectado Nacional (SIN)
+                        </p>
+                        {realTimeData && (
+                          <>
+                            <span className="text-gray-300">•</span>
+                            <div className="flex items-center gap-1.5 text-indigo-600 font-bold text-sm">
+                              <Calendar className="w-4 h-4" />
+                              Información del día: {realTimeData.lastUpdate.split(' ')[0]}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {realTimeData && (
+                  <div className="mb-8 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-start gap-3">
+                    <Info className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-800 leading-relaxed">
+                      Los valores mostrados corresponden al cierre de operación del día <strong>{realTimeData.lastUpdate.split(' ')[0]}</strong>. 
+                      Debido a los procesos de consolidación de XM, la información en tiempo real suele presentar un desfase de 1 a 2 horas respecto a la hora actual.
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                  <div className="bg-orange-50/50 p-8 rounded-[32px] border border-orange-100 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 -mt-8 -mr-8 w-32 h-32 bg-orange-100 rounded-full blur-3xl opacity-50 group-hover:scale-110 transition-transform" />
+                    <p className="text-xs font-black text-orange-600 uppercase tracking-widest mb-2 relative z-10">Demanda Real del SIN</p>
+                    <div className="flex items-baseline gap-2 relative z-10">
+                      <span className="text-5xl font-black text-gray-900">
+                        {isRealTimeLoading ? '---' : (realTimeData?.demand.toLocaleString() || '---')}
+                      </span>
+                      <span className="text-lg font-bold text-gray-400">MW</span>
+                    </div>
+                    <div className="mt-4 flex items-center gap-2 text-[10px] font-bold text-orange-600 bg-white/50 w-fit px-3 py-1 rounded-full border border-orange-100">
+                      <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+                      DATOS EN VIVO
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50/50 p-8 rounded-[32px] border border-blue-100 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 -mt-8 -mr-8 w-32 h-32 bg-blue-100 rounded-full blur-3xl opacity-50 group-hover:scale-110 transition-transform" />
+                    <p className="text-xs font-black text-blue-600 uppercase tracking-widest mb-2 relative z-10">Generación Total</p>
+                    <div className="flex items-baseline gap-2 relative z-10">
+                      <span className="text-5xl font-black text-gray-900">
+                        {isRealTimeLoading ? '---' : (realTimeData?.generation.toLocaleString() || '---')}
+                      </span>
+                      <span className="text-lg font-bold text-gray-400">MW</span>
+                    </div>
+                    <div className="mt-4 flex items-center gap-2 text-[10px] font-bold text-blue-600 bg-white/50 w-fit px-3 py-1 rounded-full border border-blue-100">
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                      DATOS EN VIVO
+                    </div>
+                  </div>
+                </div>
+
+                {/* Real-time Chart */}
+                <div className="bg-white rounded-[32px] p-8 border border-gray-100 shadow-sm h-[400px] lg:h-[500px]">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-bold text-gray-900">Curva de Carga Diaria</h3>
+                    <div className="flex items-center gap-4">
+                      {realTimeError && (
+                        <button 
+                          onClick={loadRealTimeData}
+                          className="flex items-center gap-2 text-[10px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-xl transition-all"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          REINTENTAR
+                        </button>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-orange-500" />
+                        <span className="text-[10px] font-bold text-gray-500 uppercase">Demanda</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-blue-500" />
+                        <span className="text-[10px] font-bold text-gray-500 uppercase">Generación</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="w-full h-full pb-10">
+                    {isRealTimeLoading ? (
+                      <div className="h-full flex flex-col items-center justify-center text-gray-300">
+                        <Loader2 className="w-10 h-10 animate-spin mb-2" />
+                        <p className="text-sm font-medium">Consultando XM...</p>
+                      </div>
+                    ) : realTimeError ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center px-4">
+                        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4">
+                          <AlertCircle className="w-8 h-8 text-red-500" />
+                        </div>
+                        <p className="text-sm font-bold text-gray-800 mb-1">Error al cargar datos</p>
+                        <p className="text-xs text-gray-500 max-w-xs">{realTimeError}</p>
+                      </div>
+                    ) : realTimeData ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={realTimeData.hourlyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                          <XAxis 
+                            dataKey="hour" 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fontSize: 11, fill: '#9ca3af' }}
+                            dy={10}
+                          />
+                          <YAxis 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fontSize: 11, fill: '#9ca3af' }}
+                            tickFormatter={(value) => `${(value / 1000).toFixed(1)}k`}
+                          />
+                          <Tooltip 
+                            contentStyle={{ 
+                              borderRadius: '16px', 
+                              border: 'none', 
+                              boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                              padding: '12px'
+                            }}
+                            formatter={(value: number) => [`${value.toLocaleString()} MW`]}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="demand"
+                            stroke="#f97316"
+                            strokeWidth={4}
+                            dot={false}
+                            activeDot={{ r: 6, strokeWidth: 0 }}
+                            animationDuration={1500}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="generation"
+                            stroke="#3b82f6"
+                            strokeWidth={4}
+                            dot={false}
+                            activeDot={{ r: 6, strokeWidth: 0 }}
+                            animationDuration={1500}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center text-gray-300">
+                        <BarChart3 className="w-10 h-10 mb-2" />
+                        <p className="text-sm font-medium">No hay datos disponibles</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-8 flex justify-center">
+                  <button 
+                    onClick={() => setCurrentView('dashboard')}
+                    className="px-8 py-3 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all"
+                  >
+                    Volver al Dashboard
+                  </button>
+                </div>
+              </div>
             </motion.div>
           ) : (
             <motion.div

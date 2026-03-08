@@ -10,7 +10,11 @@ import {
   CircleDot,
   LayoutGrid,
   Layers,
-  HelpCircle
+  HelpCircle,
+  CircuitBoard,
+  ArrowUpRight,
+  Triangle,
+  Compass
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
@@ -35,11 +39,11 @@ const toPhasor = (real: number, imag: number): PhasorData => {
 
 export default function PhasorCalculator() {
   const [type, setType] = useState<'serie' | 'paralelo'>('serie');
-  const [r, setR] = useState<string | number>(10);
-  const [xl, setXl] = useState<string | number>(20);
-  const [xc, setXc] = useState<string | number>(5);
-  const [vMag, setVMag] = useState<string | number>(120);
-  const [freq, setFreq] = useState<string | number>(60);
+  const [r, setR] = useState<string | number>('');
+  const [xl, setXl] = useState<string | number>('');
+  const [xc, setXc] = useState<string | number>('');
+  const [vMag, setVMag] = useState<string | number>('');
+  const [freq, setFreq] = useState<string | number>('');
 
   const results = useMemo(() => {
     const numR = Number(r) || 0;
@@ -138,136 +142,163 @@ export default function PhasorCalculator() {
 
   return (
     <div className="space-y-10 pb-24">
-      {/* Hero Section */}
-      <div className="relative overflow-hidden bg-white rounded-[40px] p-10 shadow-sm border border-gray-100">
-        <div className="absolute top-0 right-0 -mt-20 -mr-20 w-80 h-80 bg-indigo-50 rounded-full blur-3xl opacity-50" />
-        <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-80 h-80 bg-blue-50 rounded-full blur-3xl opacity-50" />
+      {/* Hero Section - Compact */}
+      <div className="relative overflow-hidden bg-white rounded-[32px] p-6 shadow-sm border border-gray-100">
+        <div className="absolute top-0 right-0 -mt-20 -mr-20 w-60 h-60 bg-indigo-50 rounded-full blur-3xl opacity-50" />
         
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-          <div className="max-w-2xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-200">
-                <Zap className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">Ingeniería de Sistemas de Potencia</span>
-                <h2 className="text-4xl font-black text-gray-900 tracking-tight">Análisis de Fasores RLC</h2>
-              </div>
+        <div className="relative z-10 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
+              <CircuitBoard className="w-5 h-5 text-white" />
             </div>
-            <p className="text-gray-500 text-lg leading-relaxed">
-              Herramienta profesional para el cálculo y visualización de diagramas fasoriales en circuitos de corriente alterna. 
-              Analice impedancias, corrientes y potencias con precisión vectorial.
-            </p>
+            <div>
+              <h2 className="text-2xl font-black text-gray-900 tracking-tight">Análisis de Circuitos RLC</h2>
+            </div>
           </div>
           
-          <div className="flex bg-gray-50 p-2 rounded-[24px] border border-gray-100 shadow-inner">
-            <button 
-              onClick={() => setType('serie')}
-              className={cn(
-                "px-8 py-3 rounded-[18px] text-sm font-bold transition-all flex items-center gap-2",
-                type === 'serie' 
-                  ? "bg-white text-indigo-600 shadow-lg shadow-gray-200/50 border border-gray-100" 
-                  : "text-gray-400 hover:text-gray-600"
-              )}
-            >
-              <Layers className="w-4 h-4" />
-              Circuito Serie
-            </button>
-            <button 
-              onClick={() => setType('paralelo')}
-              className={cn(
-                "px-8 py-3 rounded-[18px] text-sm font-bold transition-all flex items-center gap-2",
-                type === 'paralelo' 
-                  ? "bg-white text-indigo-600 shadow-lg shadow-gray-200/50 border border-gray-100" 
-                  : "text-gray-400 hover:text-gray-600"
-              )}
-            >
-              <LayoutGrid className="w-4 h-4" />
-              Circuito Paralelo
-            </button>
-          </div>
+          <p className="hidden md:block text-gray-400 text-xs font-medium max-w-xs text-right">
+            Cálculo y visualización profesional de diagramas fasoriales, impedancias y potencias.
+          </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column: Controls & Summary */}
-        <div className="lg:col-span-4 space-y-8">
-          {/* Parameters Card */}
-          <section className="bg-white rounded-[32px] p-8 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-8">
+      <div className="space-y-8">
+        {/* Top Control Panel: Parameters & Results */}
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+          {/* Parameters Section */}
+          <section className="xl:col-span-8 bg-white rounded-[32px] p-8 shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
                   <Settings2 className="w-5 h-5 text-indigo-500" />
                 </div>
-                <h3 className="font-black text-gray-900 uppercase tracking-tight text-sm">Parámetros</h3>
+                <h3 className="font-black text-gray-900 uppercase tracking-tight text-sm">Configuración del Sistema</h3>
               </div>
-              <button className="text-gray-300 hover:text-indigo-500 transition-colors">
-                <HelpCircle className="w-5 h-5" />
-              </button>
+              <div className="flex bg-gray-50 p-1 rounded-xl border border-gray-100">
+                <button 
+                  onClick={() => setType('serie')}
+                  className={cn(
+                    "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
+                    type === 'serie' ? "bg-white text-indigo-600 shadow-sm border border-gray-100" : "text-gray-400 hover:text-gray-600"
+                  )}
+                >
+                  Serie
+                </button>
+                <button 
+                  onClick={() => setType('paralelo')}
+                  className={cn(
+                    "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
+                    type === 'paralelo' ? "bg-white text-indigo-600 shadow-sm border border-gray-100" : "text-gray-400 hover:text-gray-600"
+                  )}
+                >
+                  Paralelo
+                </button>
+              </div>
             </div>
             
-            <div className="space-y-6">
-              <ModernInput label="Resistencia (R)" value={r} onChange={setR} unit="Ω" icon="R" />
-              <ModernInput label="Reactancia Inductiva (XL)" value={xl} onChange={setXl} unit="Ω" icon="L" />
-              <ModernInput label="Reactancia Capacitiva (XC)" value={xc} onChange={setXc} unit="Ω" icon="C" />
-              <ModernInput label="Voltaje de Fuente (V)" value={vMag} onChange={setVMag} unit="V" icon="V" />
-              <ModernInput label="Frecuencia (f)" value={freq} onChange={setFreq} unit="Hz" icon="f" />
-            </div>
-
-            <div className="mt-10 p-5 bg-indigo-50/30 rounded-[24px] border border-indigo-100/50">
-              <div className="flex items-start gap-3">
-                <Info className="w-4 h-4 text-indigo-500 mt-1 shrink-0" />
-                <p className="text-[11px] text-indigo-700/80 leading-relaxed font-medium">
-                  Los cálculos asumen un voltaje de referencia con ángulo 0°. 
-                  Las reactancias se procesan directamente para determinar la impedancia compleja del sistema.
-                </p>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+              <ModernInput 
+                label="Resistencia (R)" 
+                value={r} 
+                onChange={setR} 
+                unit="Ω" 
+                icon="R" 
+                tooltip="Oposición al flujo de corriente que disipa energía en forma de calor (Parte real de la impedancia)."
+              />
+              <ModernInput 
+                label="Reactancia Inductiva (XL)" 
+                value={xl} 
+                onChange={setXl} 
+                unit="Ω" 
+                icon="L" 
+                tooltip="Oposición al cambio de corriente en un inductor. Aumenta proporcionalmente con la frecuencia."
+              />
+              <ModernInput 
+                label="Reactancia Capacitiva (XC)" 
+                value={xc} 
+                onChange={setXc} 
+                unit="Ω" 
+                icon="C" 
+                tooltip="Oposición al flujo de corriente en un capacitor. Disminuye inversamente con la frecuencia."
+              />
+              <ModernInput 
+                label="Voltaje Fuente (V)" 
+                value={vMag} 
+                onChange={setVMag} 
+                unit="V" 
+                icon="V" 
+                tooltip="Magnitud del voltaje eficaz (RMS) de la fuente. Se toma como referencia con ángulo de 0°."
+              />
+              <ModernInput 
+                label="Frecuencia (f)" 
+                value={freq} 
+                onChange={setFreq} 
+                unit="Hz" 
+                icon="f" 
+                tooltip="Número de ciclos por segundo de la señal de CA. Influye en el valor de las reactancias."
+              />
             </div>
           </section>
 
-          {/* Results Card */}
-          <section className="bg-gray-900 rounded-[32px] p-8 text-white shadow-2xl shadow-indigo-100 overflow-hidden relative">
+          {/* Results Summary Section */}
+          <section className="xl:col-span-4 bg-gray-900 rounded-[32px] p-6 text-white shadow-2xl shadow-indigo-100 relative overflow-hidden flex flex-col">
             <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl" />
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 mb-8">Resumen de Resultados</h3>
-            <div className="space-y-5">
-              <ResultRow label="Impedancia (Z)" value={hasValues ? `${results.Z.mag.toFixed(2)} ∠ ${results.Z.ang.toFixed(2)}°` : '---'} unit="Ω" />
-              <ResultRow label="Corriente (I)" value={hasValues ? `${results.I.mag.toFixed(2)} ∠ ${results.I.ang.toFixed(2)}°` : '---'} unit="A" />
-              <ResultRow label="Potencia Activa (P)" value={hasValues ? results.P.toFixed(2) : '---'} unit="W" />
-              <ResultRow label="Potencia Reactiva (Q)" value={hasValues ? results.Q.toFixed(2) : '---'} unit="var" />
-              <ResultRow label="Factor de Potencia" value={hasValues ? results.pf.toFixed(3) : '---'} unit={results.phi > 0 ? 'Ind.' : 'Cap.'} />
+            
+            <div className="relative z-10 mb-4 border-b border-white/5 pb-2">
+              <h3 className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">Variables eléctricas</h3>
+            </div>
+
+            <div className="relative z-10 grid grid-cols-2 gap-x-4 gap-y-4">
+              <div className="col-span-2">
+                <ResultRow label="Impedancia (Z)" value={hasValues ? `${results.Z.mag.toFixed(2)} ∠ ${results.Z.ang.toFixed(2)}°` : '---'} unit="Ω" />
+              </div>
+              <div className="col-span-2">
+                <ResultRow label="Corriente (I)" value={hasValues ? `${results.I.mag.toFixed(2)} ∠ ${results.I.ang.toFixed(2)}°` : '---'} unit="A" />
+              </div>
+              <div className="col-span-2 sm:col-span-1">
+                <ResultRow label="P. Activa (P)" value={hasValues ? results.P.toFixed(1) : '---'} unit="W" />
+              </div>
+              <div className="col-span-2 sm:col-span-1">
+                <ResultRow label="P. Reactiva (Q)" value={hasValues ? results.Q.toFixed(1) : '---'} unit="var" />
+              </div>
+              <div className="col-span-2 sm:col-span-1">
+                <ResultRow label="Factor Potencia" value={hasValues ? results.pf.toFixed(3) : '---'} unit={results.phi > 0 ? 'Ind.' : 'Cap.'} />
+              </div>
+              <div className="col-span-2 sm:col-span-1">
+                <ResultRow label="P. Aparente" value={hasValues ? results.S_abs.toFixed(1) : '---'} unit="VA" />
+              </div>
             </div>
           </section>
         </div>
 
-        {/* Right Column: Visualizations */}
-        <div className="lg:col-span-8 space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Phasor Diagram Card */}
-            <VisualCard 
-              title={type === 'serie' ? "Diagrama de Tensiones" : "Diagrama de Corrientes"}
-              description={type === 'serie' ? "Vectores VR, VL, VC y Vt" : "Vectores IR, IL, IC e It"}
-              icon={<CircleDot className="w-4 h-4" />}
-            >
-              {hasValues ? <PhasorDiagram results={results} /> : <EmptyVisualState />}
-            </VisualCard>
-
-            {/* Power Triangle Card */}
-            <VisualCard 
-              title="Triángulo de Potencias"
-              description="Relación vectorial P, Q y S"
-              icon={<Activity className="w-4 h-4" />}
-            >
-              {hasValues ? <PowerTriangle results={results} /> : <EmptyVisualState />}
-            </VisualCard>
-          </div>
-
-          {/* Full System Card */}
+        {/* Main Visualization Area */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {/* Phasor Diagram */}
           <VisualCard 
-            title="Comparativa de Fasores del Sistema"
-            description="Relación visual entre V, I y S (Escalas normalizadas)"
-            icon={<RotateCcw className="w-4 h-4" />}
-            className="md:col-span-2"
-            contentClassName="min-h-[480px] lg:min-h-[520px]"
+            title={type === 'serie' ? "Diagrama de Tensiones" : "Diagrama de Corrientes"}
+            description={type === 'serie' ? "Vectores VR, VL, VC y VT" : "Vectores IR, IL, IC e IT"}
+            icon={<ArrowUpRight className="w-5 h-5" />}
+            contentClassName="min-h-[380px] lg:min-h-[420px] xl:min-h-[480px]"
+          >
+            {hasValues ? <PhasorDiagram results={results} /> : <EmptyVisualState />}
+          </VisualCard>
+
+          {/* Power Triangle */}
+          <VisualCard 
+            title="Triángulo de Potencias"
+            description="RELACIÓN VECTORIAL P, Q Y S"
+            icon={<Triangle className="w-5 h-5" />}
+            contentClassName="min-h-[380px] lg:min-h-[420px] xl:min-h-[480px]"
+          >
+            {hasValues ? <PowerTriangle results={results} /> : <EmptyVisualState />}
+          </VisualCard>
+
+          {/* System Analysis */}
+          <VisualCard 
+            title="Análisis de Fasores"
+            description="RELACIÓN NORMALIZADA V, I Y S"
+            icon={<Compass className="w-5 h-5" />}
+            contentClassName="min-h-[380px] lg:min-h-[420px] xl:min-h-[480px]"
           >
             {hasValues ? <SystemPhasors results={results} /> : <EmptyVisualState />}
           </VisualCard>
@@ -277,11 +308,22 @@ export default function PhasorCalculator() {
   );
 }
 
-function ModernInput({ label, value, onChange, unit, icon }: { label: string, value: string | number, onChange: (v: string | number) => void, unit: string, icon: string }) {
+function ModernInput({ label, value, onChange, unit, icon, tooltip }: { label: string, value: string | number, onChange: (v: string | number) => void, unit: string, icon: string, tooltip?: string }) {
   return (
     <div className="group space-y-2">
       <div className="flex justify-between items-center px-1">
-        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{label}</label>
+        <div className="flex items-center gap-1.5">
+          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{label}</label>
+          {tooltip && (
+            <div className="relative group/tooltip">
+              <HelpCircle className="w-3 h-3 text-gray-300 hover:text-indigo-500 cursor-help transition-colors" />
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-gray-900 text-[10px] text-white rounded-lg opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all z-50 pointer-events-none shadow-xl">
+                {tooltip}
+                <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-gray-900" />
+              </div>
+            </div>
+          )}
+        </div>
         <span className="text-[10px] font-mono font-bold text-indigo-500">{unit}</span>
       </div>
       <div className="relative">
@@ -306,11 +348,11 @@ function ModernInput({ label, value, onChange, unit, icon }: { label: string, va
 
 function ResultRow({ label, value, unit }: { label: string, value: string, unit: string }) {
   return (
-    <div className="flex items-center justify-between group">
-      <span className="text-xs text-gray-500 font-medium group-hover:text-gray-400 transition-colors">{label}</span>
-      <div className="flex items-baseline gap-2">
-        <span className="text-lg font-mono font-black text-white tracking-tight">{value}</span>
-        <span className="text-[10px] font-black text-indigo-500 uppercase">{unit}</span>
+    <div className="flex items-center justify-between group border-b border-white/5 pb-1">
+      <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider group-hover:text-gray-300 transition-colors shrink-0">{label}</span>
+      <div className="flex items-baseline gap-1 ml-4">
+        <span className="text-sm font-mono font-black text-white tracking-tight whitespace-nowrap">{value}</span>
+        <span className="text-[8px] font-black text-indigo-500 uppercase shrink-0">{unit}</span>
       </div>
     </div>
   );
@@ -318,17 +360,17 @@ function ResultRow({ label, value, unit }: { label: string, value: string, unit:
 
 function VisualCard({ title, description, icon, children, className, contentClassName }: { title: string, description: string, icon: React.ReactNode, children: React.ReactNode, className?: string, contentClassName?: string }) {
   return (
-    <div className={cn("bg-white rounded-[32px] p-8 shadow-sm border border-gray-100 flex flex-col h-full group hover:shadow-xl hover:shadow-indigo-100/20 transition-all duration-500", className)}>
-      <div className="flex items-center justify-between mb-8">
+    <div className={cn("bg-white rounded-[32px] p-4 shadow-sm border border-gray-100 flex flex-col h-full group hover:shadow-xl hover:shadow-indigo-100/20 transition-all duration-500", className)}>
+      <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="font-black text-gray-900 tracking-tight">{title}</h3>
-          <p className="text-[11px] text-gray-400 font-medium mt-1">{description}</p>
+          <h3 className="font-black text-gray-900 tracking-tight text-xs">{title}</h3>
+          <p className="text-[9px] text-gray-400 font-medium mt-0.5">{description}</p>
         </div>
-        <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-all">
+        <div className="w-7 h-7 bg-gray-50 rounded-lg flex items-center justify-center text-gray-400 group-hover:bg-indigo-50 group-hover:text-indigo-500 transition-all">
           {icon}
         </div>
       </div>
-      <div className={cn("flex-1 flex items-center justify-center min-h-[320px] bg-gray-50/30 rounded-[24px] border border-gray-50 p-4", contentClassName)}>
+      <div className={cn("flex-1 flex items-center justify-center min-h-[320px] bg-gray-50/30 rounded-[24px] border border-gray-50 p-1", contentClassName)}>
         {children}
       </div>
     </div>
@@ -337,12 +379,14 @@ function VisualCard({ title, description, icon, children, className, contentClas
 
 function EmptyVisualState() {
   return (
-    <div className="flex flex-col items-center justify-center text-center p-12">
-      <div className="w-20 h-20 bg-white rounded-[24px] flex items-center justify-center mb-6 shadow-sm border border-gray-100">
-        <Activity className="w-8 h-8 text-gray-200" />
+    <div className="flex flex-col items-center justify-center text-center p-12 bg-white/50 rounded-[24px] w-full h-full border-2 border-dashed border-gray-100">
+      <div className="w-24 h-24 bg-indigo-50/50 rounded-[32px] flex items-center justify-center mb-8 shadow-inner">
+        <Activity className="w-10 h-10 text-indigo-200" />
       </div>
-      <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Esperando Datos</p>
-      <p className="text-xs text-gray-400 max-w-[180px] leading-relaxed">Complete los parámetros del sistema para generar la visualización vectorial</p>
+      <p className="text-xs font-black text-indigo-400 uppercase tracking-[0.3em] mb-3">Esperando Parámetros</p>
+      <p className="text-sm text-gray-400 max-w-[240px] leading-relaxed font-medium">
+        Ingrese los valores de R, XL, XC y Voltaje en el panel lateral para generar el análisis vectorial detallado.
+      </p>
     </div>
   );
 }
@@ -355,13 +399,13 @@ function PhasorDiagram({ results }: { results: any }) {
         { label: 'VR', val: results.VR, color: '#6366f1' },
         { label: 'VL', val: results.VL, color: '#ef4444' },
         { label: 'VC', val: results.VC, color: '#10b981' },
-        { label: 'Vt', val: results.V, color: '#f59e0b' }
+        { label: 'VT', val: results.V, color: '#f59e0b' }
       ]
     : [
         { label: 'IR', val: results.IR, color: '#6366f1' },
         { label: 'IL', val: results.IL, color: '#ef4444' },
         { label: 'IC', val: results.IC, color: '#10b981' },
-        { label: 'It', val: results.I, color: '#f59e0b' }
+        { label: 'IT', val: results.I, color: '#f59e0b' }
       ];
 
   const refVector = results.type === 'serie' ? results.VR : results.IR;
@@ -381,53 +425,46 @@ function PhasorDiagram({ results }: { results: any }) {
     };
   });
 
-  return <VectorSpace vectors={rotatedVectors} />;
+  return <VectorSpace vectors={rotatedVectors} idPrefix="phasor-main" />;
 }
 
 function PowerTriangle({ results }: { results: any }) {
   const { P, Q, S_abs, phi } = results;
   const maxVal = Math.max(Math.abs(P), Math.abs(Q), Math.abs(S_abs), 1);
-  const scale = 120 / maxVal;
+  const scale = 320 / maxVal;
 
   const pX = P * scale;
   const qY = -Q * scale; 
 
-  const arcRadius = Math.min(Math.abs(pX), Math.abs(qY)) * 0.4;
-  const safeArcRadius = Math.max(20, Math.min(arcRadius, 50));
+  const arcRadius = 70;
   
-  const margin = 60;
-  const minX = Math.min(0, pX) - margin;
-  const maxX = Math.max(0, pX) + margin;
-  const minY = Math.min(0, qY) - margin;
-  const maxY = Math.max(0, qY) + margin;
-  const width = maxX - minX;
-  const height = maxY - minY;
-
   return (
     <svg 
-      viewBox={`${minX} ${minY} ${width} ${height}`} 
-      className="w-full h-full max-w-[350px]"
+      viewBox="-100 -350 550 700" 
+      className="w-full h-full"
     >
       <defs>
-        <marker id="arrowhead-v" markerWidth="4" markerHeight="3" refX="4" refY="1.5" orient="auto">
-          <polygon points="0 0, 4 1.5, 0 3" fill="currentColor" />
+        <marker id="arrowhead-power-tri" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
+          <path d="M0,0 L5,2.5 L0,5 Z" fill="currentColor" />
         </marker>
-        <linearGradient id="grad-p" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#6366f1" stopOpacity="0.8" />
-          <stop offset="100%" stopColor="#6366f1" />
-        </linearGradient>
       </defs>
       
-      {/* Grid */}
-      <line x1={minX} y1="0" x2={maxX} y2="0" stroke="#f1f5f9" strokeWidth="1" />
-      <line x1="0" y1={minY} x2="0" y2={maxY} stroke="#f1f5f9" strokeWidth="1" />
+      {/* Polar Grid */}
+      <circle cx="0" cy="0" r="320" fill="none" stroke="#f1f5f9" strokeWidth="0.5" />
+      <circle cx="0" cy="0" r="240" fill="none" stroke="#f1f5f9" strokeWidth="0.5" />
+      <circle cx="0" cy="0" r="160" fill="none" stroke="#f1f5f9" strokeWidth="0.5" />
+      <circle cx="0" cy="0" r="80" fill="none" stroke="#f1f5f9" strokeWidth="0.5" />
+      
+      {/* Axes */}
+      <line x1="-80" y1="0" x2="420" y2="0" stroke="#f1f5f9" strokeWidth="1" />
+      <line x1="0" y1="-330" x2="0" y2="330" stroke="#f1f5f9" strokeWidth="1" />
 
       {/* P Vector */}
-      <line x1="0" y1="0" x2={pX} y2="0" stroke="url(#grad-p)" strokeWidth="3" markerEnd="url(#arrowhead-v)" className="text-indigo-500" />
+      <line x1="0" y1="0" x2={pX} y2="0" stroke="#6366f1" strokeWidth="2" markerEnd="url(#arrowhead-power-tri)" className="text-indigo-600" />
       <text 
         x={pX / 2} 
-        y={Q >= 0 ? 18 : -12} 
-        fontSize="10" 
+        y={Q >= 0 ? 22 : -15} 
+        fontSize="11" 
         fontWeight="900" 
         textAnchor="middle" 
         fill="#6366f1"
@@ -437,11 +474,11 @@ function PowerTriangle({ results }: { results: any }) {
       </text>
 
       {/* Q Vector */}
-      <line x1={pX} y1="0" x2={pX} y2={qY} stroke="#ef4444" strokeWidth="3" markerEnd="url(#arrowhead-v)" className="text-red-500" />
+      <line x1={pX} y1="0" x2={pX} y2={qY} stroke="#ef4444" strokeWidth="2" markerEnd="url(#arrowhead-power-tri)" className="text-red-500" />
       <text 
         x={pX + (pX >= 0 ? 12 : -12)} 
         y={qY / 2} 
-        fontSize="10" 
+        fontSize="11" 
         fontWeight="900" 
         textAnchor={pX >= 0 ? "start" : "end"} 
         dominantBaseline="middle"
@@ -452,11 +489,11 @@ function PowerTriangle({ results }: { results: any }) {
       </text>
 
       {/* S Vector */}
-      <line x1="0" y1="0" x2={pX} y2={qY} stroke="#10b981" strokeWidth="3" markerEnd="url(#arrowhead-v)" className="text-emerald-500" />
+      <line x1="0" y1="0" x2={pX} y2={qY} stroke="#10b981" strokeWidth="2" markerEnd="url(#arrowhead-power-tri)" className="text-emerald-500" />
       <g transform={`translate(${pX / 2}, ${qY / 2}) rotate(${-phi}, 0, 0)`}>
         <text 
-          y={Q >= 0 ? -12 : 18} 
-          fontSize="10" 
+          y={Q >= 0 ? -15 : 22} 
+          fontSize="11" 
           fontWeight="900" 
           textAnchor="middle" 
           fill="#10b981"
@@ -468,7 +505,7 @@ function PowerTriangle({ results }: { results: any }) {
 
       {/* Angle Arc */}
       <path 
-        d={`M ${safeArcRadius} 0 A ${safeArcRadius} ${safeArcRadius} 0 0 ${Q > 0 ? 0 : 1} ${safeArcRadius * Math.cos(phi * Math.PI / 180)} ${-safeArcRadius * Math.sin(phi * Math.PI / 180)}`} 
+        d={`M ${arcRadius} 0 A ${arcRadius} ${arcRadius} 0 0 ${Q > 0 ? 0 : 1} ${arcRadius * Math.cos(phi * Math.PI / 180)} ${-arcRadius * Math.sin(phi * Math.PI / 180)}`} 
         fill="rgba(99, 102, 241, 0.05)" 
         stroke="#6366f1" 
         strokeWidth="1.5" 
@@ -476,9 +513,9 @@ function PowerTriangle({ results }: { results: any }) {
       />
       
       <text 
-        x={safeArcRadius + 10} 
-        y={-safeArcRadius * Math.sin((phi/2) * Math.PI / 180)} 
-        fontSize="10" 
+        x={arcRadius + 10} 
+        y={-arcRadius * Math.sin((phi/2) * Math.PI / 180)} 
+        fontSize="11" 
         fontWeight="900" 
         fill="#6366f1" 
         textAnchor="start"
@@ -504,61 +541,66 @@ function SystemPhasors({ results }: { results: any }) {
     { label: 'S', val: S, color: '#10b981', original: S, unit: 'VA' }
   ];
 
-  return <VectorSpace vectors={vectors} showOriginalLabels />;
+  return <VectorSpace vectors={vectors} showOriginalLabels idPrefix="phasor-sys" />;
 }
 
-function VectorSpace({ vectors, showOriginalLabels = false }: { vectors: any[], showOriginalLabels?: boolean }) {
+function VectorSpace({ vectors, showOriginalLabels = false, idPrefix = "vector" }: { vectors: any[], showOriginalLabels?: boolean, idPrefix?: string }) {
   const maxMag = Math.max(...vectors.map(v => v.val.mag), 1);
-  const scale = 110 / maxMag; 
+  const scale = 320 / maxMag; 
+
+  const markerId = `arrowhead-${idPrefix}`;
 
   return (
-    <svg viewBox="-220 -220 440 440" className="w-full h-full max-w-full max-h-[500px]">
+    <svg viewBox="-100 -350 550 700" className="w-full h-full">
       <defs>
-        <marker id="arrowhead-v" markerWidth="4" markerHeight="3" refX="4" refY="1.5" orient="auto">
-          <polygon points="0 0, 4 1.5, 0 3" fill="currentColor" />
+        <marker id={markerId} markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
+          <path d="M0,0 L5,2.5 L0,5 Z" fill="currentColor" />
         </marker>
       </defs>
       
       {/* Polar Grid */}
-      <circle cx="0" cy="0" r="120" fill="none" stroke="#f1f5f9" strokeWidth="1" />
-      <circle cx="0" cy="0" r="80" fill="none" stroke="#f1f5f9" strokeWidth="1" />
-      <circle cx="0" cy="0" r="40" fill="none" stroke="#f1f5f9" strokeWidth="1" />
+      <circle cx="0" cy="0" r="320" fill="none" stroke="#f1f5f9" strokeWidth="0.5" />
+      <circle cx="0" cy="0" r="240" fill="none" stroke="#f1f5f9" strokeWidth="0.5" />
+      <circle cx="0" cy="0" r="160" fill="none" stroke="#f1f5f9" strokeWidth="0.5" />
+      <circle cx="0" cy="0" r="80" fill="none" stroke="#f1f5f9" strokeWidth="0.5" />
       
       {/* Axes */}
-      <line x1="-150" y1="0" x2="150" y2="0" stroke="#f1f5f9" strokeWidth="2" />
-      <line x1="0" y1="-150" x2="0" y2="150" stroke="#f1f5f9" strokeWidth="2" />
+      <line x1="-80" y1="0" x2="420" y2="0" stroke="#f1f5f9" strokeWidth="1" />
+      <line x1="0" y1="-330" x2="0" y2="330" stroke="#f1f5f9" strokeWidth="1" />
 
       {vectors.map((v, i) => {
         const x = v.val.real * scale;
         const y = -v.val.imag * scale; 
         
         const mag = Math.sqrt(x*x + y*y);
-        const labelDist = mag + 35; 
-        const lx = (x / (mag || 1)) * labelDist;
-        const ly = (y / (mag || 1)) * labelDist;
+        // Position exactly at the tip, then use anchors to push it outside
+        const lx = x;
+        const ly = y;
         
+        // Dynamic alignment to stay outside the vector tip
+        const textAnchor = x > 10 ? "start" : (x < -10 ? "end" : "middle");
+        const dominantBaseline = y > 10 ? "hanging" : (y < -10 ? "alphabetic" : "middle");
+        
+        // Extra padding to avoid touching the arrowhead
+        const dx = x > 10 ? 12 : (x < -10 ? -12 : 0);
+        const dy = y > 10 ? 12 : (y < -10 ? -12 : 0);
+
         return (
           <g key={i}>
             <line 
               x1="0" y1="0" x2={x} y2={y} 
               stroke={v.color} 
-              strokeWidth="3" 
-              markerEnd="url(#arrowhead-v)" 
+              strokeWidth="2" 
+              markerEnd={`url(#${markerId})`} 
               style={{ color: v.color }}
             />
-            <g transform={`translate(${lx}, ${ly})`}>
-              <rect 
-                x="-45" y="-10" width="90" height="20" 
-                rx="6" fill="white" 
-                stroke={v.color} strokeOpacity="0.2" 
-                className="shadow-sm"
-              />
+            <g transform={`translate(${lx + dx}, ${ly + dy})`}>
               <text 
-                fontSize="9" 
+                fontSize="11" 
                 fontWeight="900" 
-                textAnchor="middle" 
+                textAnchor={textAnchor}
                 fill={v.color}
-                dominantBaseline="middle"
+                dominantBaseline={dominantBaseline}
                 className="font-mono"
               >
                 {v.label}: {showOriginalLabels ? v.original.mag.toFixed(1) : v.val.mag.toFixed(1)}{showOriginalLabels ? v.unit : ''} ∠{v.val.ang.toFixed(1)}°
