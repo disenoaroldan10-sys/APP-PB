@@ -31,6 +31,7 @@ import { twMerge } from 'tailwind-merge';
 import { format } from 'date-fns';
 import { fetchPrecioBolsa, getMonthRange, XmPriceData, listMetrics } from './services/xmService';
 import PhasorCalculator from './components/PhasorCalculator';
+import GenerationCalculator from './components/GenerationCalculator';
 
 // Utility for tailwind classes
 function cn(...inputs: ClassValue[]) {
@@ -670,6 +671,15 @@ export default function App() {
               exit={{ opacity: 0, y: -20 }}
             >
               <PhasorCalculator />
+            </motion.div>
+          ) : currentView === 'calculos' ? (
+            <motion.div
+              key="calculos"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <GenerationCalculator />
             </motion.div>
           ) : (
             <motion.div

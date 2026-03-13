@@ -272,13 +272,13 @@ export default function PhasorCalculator() {
         </div>
 
         {/* Main Visualization Area */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
           {/* Phasor Diagram */}
           <VisualCard 
             title={type === 'serie' ? "Diagrama de Tensiones" : "Diagrama de Corrientes"}
             description={type === 'serie' ? "Vectores VR, VL, VC y VT" : "Vectores IR, IL, IC e IT"}
             icon={<ArrowUpRight className="w-5 h-5" />}
-            contentClassName="min-h-[380px] lg:min-h-[420px] xl:min-h-[480px]"
+            contentClassName="min-h-[450px] lg:min-h-[500px] xl:min-h-[550px]"
           >
             {hasValues ? <PhasorDiagram results={results} /> : <EmptyVisualState />}
           </VisualCard>
@@ -288,7 +288,7 @@ export default function PhasorCalculator() {
             title="Triángulo de Potencias"
             description="RELACIÓN VECTORIAL P, Q Y S"
             icon={<Triangle className="w-5 h-5" />}
-            contentClassName="min-h-[380px] lg:min-h-[420px] xl:min-h-[480px]"
+            contentClassName="min-h-[450px] lg:min-h-[500px] xl:min-h-[550px]"
           >
             {hasValues ? <PowerTriangle results={results} /> : <EmptyVisualState />}
           </VisualCard>
@@ -298,7 +298,8 @@ export default function PhasorCalculator() {
             title="Análisis de Fasores"
             description="RELACIÓN NORMALIZADA V, I Y S"
             icon={<Compass className="w-5 h-5" />}
-            contentClassName="min-h-[380px] lg:min-h-[420px] xl:min-h-[480px]"
+            contentClassName="min-h-[450px] lg:min-h-[500px] xl:min-h-[550px]"
+            className="lg:col-span-2 xl:col-span-1"
           >
             {hasValues ? <SystemPhasors results={results} /> : <EmptyVisualState />}
           </VisualCard>
@@ -431,73 +432,84 @@ function PhasorDiagram({ results }: { results: any }) {
 function PowerTriangle({ results }: { results: any }) {
   const { P, Q, S_abs, phi } = results;
   const maxVal = Math.max(Math.abs(P), Math.abs(Q), Math.abs(S_abs), 1);
-  const scale = 320 / maxVal;
+  const scale = 340 / maxVal;
 
   const pX = P * scale;
   const qY = -Q * scale; 
 
-  const arcRadius = 70;
+  const arcRadius = 80;
   
   return (
     <svg 
-      viewBox="-100 -350 550 700" 
-      className="w-full h-full"
+      viewBox="-400 -400 800 800" 
+      className="w-full h-full drop-shadow-sm"
     >
       <defs>
-        <marker id="arrowhead-power-tri" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
-          <path d="M0,0 L5,2.5 L0,5 Z" fill="currentColor" />
+        <marker id="arrowhead-power-tri" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="currentColor" />
         </marker>
+        <filter id="text-halo-tri">
+          <feMorphology in="SourceAlpha" result="expanded" operator="dilate" radius="1"/>
+          <feFlood floodColor="white" floodOpacity="0.9" result="white"/>
+          <feComposite in="white" in2="expanded" operator="in"/>
+          <feMerge>
+            <feMergeNode/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
       </defs>
       
       {/* Polar Grid */}
-      <circle cx="0" cy="0" r="320" fill="none" stroke="#f1f5f9" strokeWidth="0.5" />
-      <circle cx="0" cy="0" r="240" fill="none" stroke="#f1f5f9" strokeWidth="0.5" />
-      <circle cx="0" cy="0" r="160" fill="none" stroke="#f1f5f9" strokeWidth="0.5" />
-      <circle cx="0" cy="0" r="80" fill="none" stroke="#f1f5f9" strokeWidth="0.5" />
+      {[80, 160, 240, 320, 400].map(r => (
+        <circle key={r} cx="0" cy="0" r={r} fill="none" stroke="#f1f5f9" strokeWidth={r === 400 ? "1" : "0.5"} />
+      ))}
       
       {/* Axes */}
-      <line x1="-80" y1="0" x2="420" y2="0" stroke="#f1f5f9" strokeWidth="1" />
-      <line x1="0" y1="-330" x2="0" y2="330" stroke="#f1f5f9" strokeWidth="1" />
+      <line x1="-400" y1="0" x2="400" y2="0" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="4 4" />
+      <line x1="0" y1="-400" x2="0" y2="400" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="4 4" />
 
       {/* P Vector */}
-      <line x1="0" y1="0" x2={pX} y2="0" stroke="#6366f1" strokeWidth="2" markerEnd="url(#arrowhead-power-tri)" className="text-indigo-600" />
+      <line x1="0" y1="0" x2={pX} y2="0" stroke="#6366f1" strokeWidth="3" markerEnd="url(#arrowhead-power-tri)" className="text-indigo-600" />
       <text 
         x={pX / 2} 
-        y={Q >= 0 ? 22 : -15} 
-        fontSize="11" 
+        y={Q >= 0 ? 25 : -15} 
+        fontSize="12" 
         fontWeight="900" 
         textAnchor="middle" 
         fill="#6366f1"
         className="font-mono"
+        filter="url(#text-halo-tri)"
       >
         P: {P.toFixed(1)}W
       </text>
 
       {/* Q Vector */}
-      <line x1={pX} y1="0" x2={pX} y2={qY} stroke="#ef4444" strokeWidth="2" markerEnd="url(#arrowhead-power-tri)" className="text-red-500" />
+      <line x1={pX} y1="0" x2={pX} y2={qY} stroke="#ef4444" strokeWidth="3" markerEnd="url(#arrowhead-power-tri)" className="text-red-500" />
       <text 
-        x={pX + (pX >= 0 ? 12 : -12)} 
+        x={pX + (pX >= 0 ? 15 : -15)} 
         y={qY / 2} 
-        fontSize="11" 
+        fontSize="12" 
         fontWeight="900" 
         textAnchor={pX >= 0 ? "start" : "end"} 
         dominantBaseline="middle"
         fill="#ef4444" 
         className="font-mono"
+        filter="url(#text-halo-tri)"
       >
         Q: {Math.abs(Q).toFixed(1)}var
       </text>
 
       {/* S Vector */}
-      <line x1="0" y1="0" x2={pX} y2={qY} stroke="#10b981" strokeWidth="2" markerEnd="url(#arrowhead-power-tri)" className="text-emerald-500" />
+      <line x1="0" y1="0" x2={pX} y2={qY} stroke="#10b981" strokeWidth="3" markerEnd="url(#arrowhead-power-tri)" className="text-emerald-500" />
       <g transform={`translate(${pX / 2}, ${qY / 2}) rotate(${-phi}, 0, 0)`}>
         <text 
-          y={Q >= 0 ? -15 : 22} 
-          fontSize="11" 
+          y={Q >= 0 ? -15 : 25} 
+          fontSize="12" 
           fontWeight="900" 
           textAnchor="middle" 
           fill="#10b981"
           className="font-mono"
+          filter="url(#text-halo-tri)"
         >
           S: {S_abs.toFixed(1)}VA
         </text>
@@ -506,21 +518,22 @@ function PowerTriangle({ results }: { results: any }) {
       {/* Angle Arc */}
       <path 
         d={`M ${arcRadius} 0 A ${arcRadius} ${arcRadius} 0 0 ${Q > 0 ? 0 : 1} ${arcRadius * Math.cos(phi * Math.PI / 180)} ${-arcRadius * Math.sin(phi * Math.PI / 180)}`} 
-        fill="rgba(99, 102, 241, 0.05)" 
+        fill="none" 
         stroke="#6366f1" 
-        strokeWidth="1.5" 
+        strokeWidth="2" 
         strokeDasharray="4 2"
       />
       
       <text 
-        x={arcRadius + 10} 
+        x={arcRadius + 15} 
         y={-arcRadius * Math.sin((phi/2) * Math.PI / 180)} 
-        fontSize="11" 
+        fontSize="12" 
         fontWeight="900" 
         fill="#6366f1" 
         textAnchor="start"
         dominantBaseline="middle"
         className="font-mono"
+        filter="url(#text-halo-tri)"
       >
         φ: {phi.toFixed(1)}°
       </text>
@@ -546,66 +559,72 @@ function SystemPhasors({ results }: { results: any }) {
 
 function VectorSpace({ vectors, showOriginalLabels = false, idPrefix = "vector" }: { vectors: any[], showOriginalLabels?: boolean, idPrefix?: string }) {
   const maxMag = Math.max(...vectors.map(v => v.val.mag), 1);
-  const scale = 320 / maxMag; 
+  const scale = 340 / maxMag; 
 
   const markerId = `arrowhead-${idPrefix}`;
 
   return (
-    <svg viewBox="-100 -350 550 700" className="w-full h-full">
+    <svg viewBox="-400 -400 800 800" className="w-full h-full drop-shadow-sm">
       <defs>
-        <marker id={markerId} markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto">
-          <path d="M0,0 L5,2.5 L0,5 Z" fill="currentColor" />
+        <marker id={markerId} markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="currentColor" />
         </marker>
+        <filter id="text-halo">
+          <feMorphology in="SourceAlpha" result="expanded" operator="dilate" radius="1.5"/>
+          <feFlood floodColor="white" floodOpacity="0.9" result="white"/>
+          <feComposite in="white" in2="expanded" operator="in"/>
+          <feMerge>
+            <feMergeNode/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
       </defs>
       
       {/* Polar Grid */}
-      <circle cx="0" cy="0" r="320" fill="none" stroke="#f1f5f9" strokeWidth="0.5" />
-      <circle cx="0" cy="0" r="240" fill="none" stroke="#f1f5f9" strokeWidth="0.5" />
-      <circle cx="0" cy="0" r="160" fill="none" stroke="#f1f5f9" strokeWidth="0.5" />
-      <circle cx="0" cy="0" r="80" fill="none" stroke="#f1f5f9" strokeWidth="0.5" />
+      {[80, 160, 240, 320, 400].map(r => (
+        <circle key={r} cx="0" cy="0" r={r} fill="none" stroke="#f1f5f9" strokeWidth={r === 400 ? "1" : "0.5"} />
+      ))}
       
       {/* Axes */}
-      <line x1="-80" y1="0" x2="420" y2="0" stroke="#f1f5f9" strokeWidth="1" />
-      <line x1="0" y1="-330" x2="0" y2="330" stroke="#f1f5f9" strokeWidth="1" />
+      <line x1="-400" y1="0" x2="400" y2="0" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="4 4" />
+      <line x1="0" y1="-400" x2="0" y2="400" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="4 4" />
 
       {vectors.map((v, i) => {
         const x = v.val.real * scale;
         const y = -v.val.imag * scale; 
         
-        const mag = Math.sqrt(x*x + y*y);
-        // Position exactly at the tip, then use anchors to push it outside
-        const lx = x;
-        const ly = y;
+        // Label positioning logic
+        const angleRad = Math.atan2(-y, x);
+        const labelDist = 25;
+        const lx = x + Math.cos(angleRad) * labelDist;
+        const ly = y - Math.sin(angleRad) * labelDist;
         
-        // Dynamic alignment to stay outside the vector tip
-        const textAnchor = x > 10 ? "start" : (x < -10 ? "end" : "middle");
-        const dominantBaseline = y > 10 ? "hanging" : (y < -10 ? "alphabetic" : "middle");
-        
-        // Extra padding to avoid touching the arrowhead
-        const dx = x > 10 ? 12 : (x < -10 ? -12 : 0);
-        const dy = y > 10 ? 12 : (y < -10 ? -12 : 0);
+        const textAnchor = x > 20 ? "start" : (x < -20 ? "end" : "middle");
+        const dominantBaseline = y > 20 ? "hanging" : (y < -20 ? "baseline" : "middle");
 
         return (
-          <g key={i}>
+          <g key={i} className="transition-all duration-500">
             <line 
               x1="0" y1="0" x2={x} y2={y} 
               stroke={v.color} 
-              strokeWidth="2" 
+              strokeWidth="3" 
               markerEnd={`url(#${markerId})`} 
               style={{ color: v.color }}
+              className="drop-shadow-sm"
             />
-            <g transform={`translate(${lx + dx}, ${ly + dy})`}>
-              <text 
-                fontSize="11" 
-                fontWeight="900" 
-                textAnchor={textAnchor}
-                fill={v.color}
-                dominantBaseline={dominantBaseline}
-                className="font-mono"
-              >
-                {v.label}: {showOriginalLabels ? v.original.mag.toFixed(1) : v.val.mag.toFixed(1)}{showOriginalLabels ? v.unit : ''} ∠{v.val.ang.toFixed(1)}°
-              </text>
-            </g>
+            <text 
+              x={lx}
+              y={ly}
+              fontSize="12" 
+              fontWeight="900" 
+              textAnchor={textAnchor}
+              fill={v.color}
+              dominantBaseline={dominantBaseline}
+              className="font-mono"
+              filter="url(#text-halo)"
+            >
+              {v.label}: {showOriginalLabels ? v.original.mag.toFixed(1) : v.val.mag.toFixed(1)}{showOriginalLabels ? v.unit : ''} ∠{v.val.ang.toFixed(1)}°
+            </text>
           </g>
         );
       })}
