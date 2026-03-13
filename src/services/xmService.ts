@@ -19,24 +19,29 @@ export interface XmResponse {
   }[];
 }
 
+const cache = new Map<string, XmPriceData[]>();
+
 const fetchChunk = async (startDate: string, endDate: string): Promise<XmPriceData[]> => {
+  const cacheKey = `${startDate}_${endDate}`;
+  if (cache.has(cacheKey)) {
+    console.log(`Returning cached data for: ${startDate} to ${endDate}`);
+    return cache.get(cacheKey)!;
+  }
+
   console.log(`Fetching chunk: ${startDate} to ${endDate}`);
   const response = await axios.post(XM_API_URL, {
-    MetricId: 'PrecBolsNaci', // Correct MetricId for "Precio de Bolsa Nacional"
+    MetricId: 'PrecBolsNaci',
     StartDate: startDate,
     EndDate: endDate,
     Entity: 'Sistema',
   });
 
-  console.log('XM API Response received for chunk');
   const items = response.data.Items;
   if (!items || items.length === 0) {
-    console.warn('No items found in XM response');
     return [];
   }
 
   const result: XmPriceData[] = [];
-  
   items.forEach((item: any) => {
     const date = item.Date;
     if (item.HourlyEntities && item.HourlyEntities.length > 0) {
@@ -56,7 +61,7 @@ const fetchChunk = async (startDate: string, endDate: string): Promise<XmPriceDa
     }
   });
   
-  console.log(`Parsed ${result.length} data points for chunk`);
+  cache.set(cacheKey, result);
   return result;
 };
 
@@ -66,29 +71,36 @@ export const fetchPrecioBolsa = async (startDate: string, endDate: string): Prom
     const end = parseISO(endDate);
     const days = differenceInDays(end, start) + 1;
 
-    if (days <= 30) {
+    // XM API usually allows up to 31 days per request. 
+    // Increasing this to 31 allows most months to be fetched in a single request.
+    if (days <= 31) {
       return await fetchChunk(startDate, endDate);
     }
 
-    // Split into chunks of 30 days
+    // Split into chunks of 31 days
+    const chunks: { start: string; end: string }[] = [];
     let currentStart = start;
-    let allData: XmPriceData[] = [];
 
     while (!isAfter(currentStart, end)) {
-      let currentEnd = addDays(currentStart, 29);
+      let currentEnd = addDays(currentStart, 30); // This makes it 31 days total
       if (isAfter(currentEnd, end)) {
         currentEnd = end;
       }
 
-      const chunkData = await fetchChunk(
-        format(currentStart, 'yyyy-MM-dd'),
-        format(currentEnd, 'yyyy-MM-dd')
-      );
-      allData = [...allData, ...chunkData];
+      chunks.push({
+        start: format(currentStart, 'yyyy-MM-dd'),
+        end: format(currentEnd, 'yyyy-MM-dd')
+      });
+      
       currentStart = addDays(currentEnd, 1);
     }
 
-    return allData;
+    // Fetch all chunks in parallel to significantly reduce total wait time
+    const results = await Promise.all(
+      chunks.map(chunk => fetchChunk(chunk.start, chunk.end))
+    );
+
+    return results.flat();
   } catch (error: any) {
     console.error('Error fetching XM data:', error);
     throw error;
