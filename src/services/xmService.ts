@@ -122,97 +122,6 @@ export const listMetrics = async (): Promise<any> => {
   }
 };
 
-export interface SINRealTimeData {
-  generation: number;
-  demand: number;
-  lastUpdate: string;
-  hourlyData: { hour: string; generation: number; demand: number }[];
-}
-
-export const fetchRealTimeSINData = async (): Promise<SINRealTimeData | null> => {
-  try {
-    const today = new Date();
-    const startDate = format(addDays(today, -3), 'yyyy-MM-dd');
-    const endDate = format(today, 'yyyy-MM-dd');
-    
-    // Fetch both metrics with fallbacks
-    const results: any = {};
-    const fetchMetricWithFallbacks = async (metricIds: string[]) => {
-      for (const metricId of metricIds) {
-        try {
-          console.log(`Attempting to fetch metric: ${metricId}`);
-          const response = await axios.post(XM_API_URL, {
-            MetricId: metricId,
-            StartDate: startDate,
-            EndDate: endDate,
-            Entity: 'Sistema',
-          });
-
-          const items = response.data.Items;
-          if (items && items.length > 0) {
-            // Find the last item that has values
-            let lastDayWithData = null;
-            for (let i = items.length - 1; i >= 0; i--) {
-              const item = items[i];
-              const hasHourly = item.HourlyEntities && item.HourlyEntities.length > 0 && item.HourlyEntities[0].Values;
-              const hasDirect = item.Values && Object.keys(item.Values).length > 0;
-              
-              if (hasHourly || hasDirect) {
-                lastDayWithData = item;
-                break;
-              }
-            }
-
-            if (lastDayWithData) {
-              const values = lastDayWithData.HourlyEntities ? lastDayWithData.HourlyEntities[0].Values : lastDayWithData.Values;
-              let lastValue = 0;
-              let lastHour = 0;
-              const hourly = [];
-
-              for (let i = 1; i <= 24; i++) {
-                const hourKey = `Hour${i.toString().padStart(2, '0')}`;
-                const val = values[hourKey] !== undefined && values[hourKey] !== null ? parseFloat(values[hourKey]) : 0;
-                hourly.push({ hour: `P${i - 1}`, value: val });
-                if (val > 0) {
-                  lastValue = val;
-                  lastHour = i - 1;
-                }
-              }
-              return { value: lastValue, hour: lastHour, date: lastDayWithData.Date, hourly };
-            }
-          }
-        } catch (e) {
-          console.warn(`Failed to fetch ${metricId}:`, e);
-        }
-      }
-      return null;
-    };
-
-    results.generation = await fetchMetricWithFallbacks(['Gene', 'Generacion', 'GenReal', 'GeneracionReal', 'GeneracionRealSistema']);
-    results.demand = await fetchMetricWithFallbacks(['DemaReal', 'DemandaReal', 'Demanda', 'DemandaRealSistema']);
-
-    if (results.generation && results.demand) {
-      const hourlyData = results.generation.hourly.map((g: any, i: number) => ({
-        hour: g.hour,
-        generation: g.value,
-        demand: results.demand.hourly[i].value
-      }));
-
-      return {
-        generation: results.generation.value,
-        demand: results.demand.value,
-        lastUpdate: `${results.generation.date} ${results.generation.hour.toString().padStart(2, '0')}:00`,
-        hourlyData
-      };
-    }
-
-    return null;
-  } catch (error) {
-    console.error('Error fetching real-time SIN data:', error);
-    return null;
-  }
-};
-
 export const getMonthRange = (year: number, month: number) => {
   const date = new Date(year, month);
   return {
@@ -225,6 +134,5 @@ export const xmService = {
   fetchPrecioBolsa,
   getMonthlyPrices,
   listMetrics,
-  fetchRealTimeSINData,
   getMonthRange
 };

@@ -27,14 +27,22 @@ async function startServer() {
       console.log('Proxy Response Status:', response.status);
       res.json(response.data);
     } catch (error: any) {
-      console.error('Error in XM Proxy:', error.message);
-      if (error.response) {
-        console.error('Response data:', JSON.stringify(error.response.data));
+      const status = error.response?.status || 500;
+      const message = error.message;
+      const responseData = error.response?.data;
+
+      // Log only if it's not a 400 (which can be expected during fallback/probing)
+      // or if we want to see why it's failing
+      if (status !== 400) {
+        console.error(`Error in XM Proxy (${status}):`, message);
+      } else {
+        console.warn(`XM API returned 400 for ${req.body.MetricId}:`, JSON.stringify(responseData));
       }
-      res.status(error.response?.status || 500).json({
+
+      res.status(status).json({
         error: 'Error fetching data from XM API',
-        details: error.message,
-        responseData: error.response?.data
+        details: message,
+        responseData: responseData
       });
     }
   });
