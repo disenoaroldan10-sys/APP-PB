@@ -60,7 +60,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     });
 
-    const data = JSON.parse(response.text || '{}');
+    let text = response.text || '{}';
+    // Remove markdown code blocks if present
+    if (text.includes('```json')) {
+      text = text.split('```json')[1].split('```')[0].trim();
+    } else if (text.includes('```')) {
+      text = text.split('```')[1].split('```')[0].trim();
+    }
+
+    const data = JSON.parse(text);
     return res.status(200).json(data);
   } catch (error: any) {
     console.error('Error in Gemini extraction:', error.message);

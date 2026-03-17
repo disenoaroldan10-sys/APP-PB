@@ -17,8 +17,8 @@ import { motion, AnimatePresence } from 'motion/react';
 
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Set up PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Set up PDF.js worker using unpkg for better version matching
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 interface InvoiceAttachmentProps {
   onBack: () => void;
@@ -67,9 +67,9 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     
     // We'll just take the first page as it usually contains the main data
-    // This keeps the payload small enough for Vercel
     const page = await pdf.getPage(1);
-    const viewport = page.getViewport({ scale: 2.0 }); // Good resolution for OCR
+    // Reduced scale to 1.5 to keep size down while maintaining OCR quality
+    const viewport = page.getViewport({ scale: 1.5 }); 
     
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
@@ -83,8 +83,8 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
       viewport: viewport
     } as any).promise;
     
-    // Compress as JPEG
-    return canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+    // Compress as JPEG with lower quality (0.6) to ensure it stays under Vercel's limit
+    return canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
   };
 
   const compressImage = (file: File): Promise<string> => {
@@ -99,9 +99,9 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
           let width = img.width;
           let height = img.height;
 
-          // Max dimensions for the image to keep size low but quality enough for OCR
-          const MAX_WIDTH = 1600;
-          const MAX_HEIGHT = 1600;
+          // Reduced max dimensions to 1200px to be safer with Vercel's 4.5MB limit
+          const MAX_WIDTH = 1200;
+          const MAX_HEIGHT = 1200;
 
           if (width > height) {
             if (width > MAX_WIDTH) {
@@ -120,8 +120,8 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
 
-          // Compress as JPEG with 0.7 quality
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          // Compress as JPEG with 0.6 quality
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
           resolve(dataUrl.split(',')[1]);
         };
         img.onerror = (err) => reject(err);
@@ -138,17 +138,25 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
     try {
       let base64 = '';
       let mimeType = file.type;
+      const fileName = file.name.toLowerCase();
       
+      console.log(`Processing file: ${file.name}, type: ${file.type}, size: ${(file.size / (1024 * 1024)).toFixed(2)} MB`);
+
       if (file.type.startsWith('image/')) {
-        // Compress images
+        console.log('Compressing image...');
         base64 = await compressImage(file);
         mimeType = 'image/jpeg';
-      } else if (file.type === 'application/pdf') {
-        // For PDFs, convert first page to image to bypass Vercel size limits
-        setIsUploading(true); // Ensure loading state is active
-        base64 = await convertPdfToImage(file);
-        mimeType = 'image/jpeg';
+      } else if (file.type === 'application/pdf' || fileName.endsWith('.pdf')) {
+        console.log('Converting PDF to image...');
+        try {
+          base64 = await convertPdfToImage(file);
+          mimeType = 'image/jpeg';
+        } catch (pdfError: any) {
+          console.error('PDF conversion failed:', pdfError);
+          throw new Error('No se pudo procesar el PDF. Intenta subir una imagen de la factura.');
+        }
       } else {
+        console.log('Using raw file data (fallback)...');
         // For other files, just read as base64 (fallback)
         base64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
@@ -161,26 +169,46 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
         });
       }
 
+      const payload = JSON.stringify({
+        base64,
+        mimeType
+      });
+
+      // Vercel has a 4.5MB limit for the entire request body
+      // We check the payload size here to catch it before sending
+      const payloadSizeInMB = new TextEncoder().encode(payload).length / (1024 * 1024);
+      console.log(`Payload size: ${payloadSizeInMB.toFixed(2)} MB`);
+
+      if (payloadSizeInMB > 4.4) {
+        throw new Error('El archivo procesado sigue siendo demasiado grande para el servidor. Intenta con un archivo más pequeño o de menor resolución.');
+      }
+
       const response = await fetch('/api/extract-invoice', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          base64,
-          mimeType
-        }),
+        body: payload,
       });
 
       if (!response.ok) {
         let errorMsg = 'Error en la extracción del servidor';
-        try {
-          const errorData = await response.json();
-          errorMsg = errorData.details || errorMsg;
-        } catch (e) {
+        const contentType = response.headers.get('content-type');
+        
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            const errorData = await response.json();
+            errorMsg = errorData.details || errorData.error || errorMsg;
+          } catch (e) {
+            console.error('Failed to parse error JSON:', e);
+          }
+        } else {
           // If not JSON, it might be a 413 error from Vercel (HTML)
-          if (response.status === 413) {
-            errorMsg = 'El archivo es demasiado grande para el servidor. Intenta con una imagen o un PDF más pequeño.';
+          const text = await response.text();
+          if (response.status === 413 || text.includes('Request Entity Too Large')) {
+            errorMsg = 'El archivo es demasiado grande para el servidor de Vercel (límite 4.5MB). Intenta con una imagen o un PDF más pequeño.';
+          } else {
+            console.error('Server returned non-JSON error:', text);
           }
         }
         throw new Error(errorMsg);
