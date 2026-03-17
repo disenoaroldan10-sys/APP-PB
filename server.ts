@@ -65,6 +65,39 @@ async function startServer() {
     }
   });
 
+  // Growatt API Proxy
+  app.all('/api/growatt/*', async (req, res) => {
+    const endpoint = req.params[0];
+    const growattUrl = process.env.GROWATT_API_URL || 'http://test.growatt.com/v1/';
+    const token = process.env.GROWATT_TOKEN || '6eb6f069523055a339d71e5b1f6c88cc';
+
+    try {
+      const config: any = {
+        method: req.method,
+        url: `${growattUrl}${endpoint}`,
+        params: { ...req.query, token },
+        headers: {
+          'Accept': 'application/json',
+        },
+        timeout: 30000
+      };
+
+      if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+        config.data = { ...req.body, token };
+      }
+
+      const response = await axios(config);
+      res.json(response.data);
+    } catch (error: any) {
+      console.error(`Growatt Proxy Error (${endpoint}):`, error.message);
+      res.status(error.response?.status || 500).json({
+        error: 'Error fetching from Growatt API',
+        details: error.message,
+        responseData: error.response?.data
+      });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

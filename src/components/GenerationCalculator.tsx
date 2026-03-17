@@ -18,17 +18,54 @@ import {
   Keyboard,
   List,
   Trash2,
-  TrendingUp
+  Eraser,
+  TrendingUp,
+  Grid3X3,
+  ArrowDownRight,
+  Info,
+  X,
+  Receipt
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { nasaService, GeocodingResult, IrradianceResult } from '../services/nasaService';
 import { countriesData } from '../constants/locationData';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import InvoiceAttachment from './InvoiceAttachment';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+const Tooltip = ({ text }: { text: string }) => {
+  const [show, setShow] = useState(false);
+  
+  return (
+    <div className="relative inline-block ml-1 align-middle">
+      <div 
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        onClick={() => setShow(!show)}
+        className="cursor-help text-gray-400 hover:text-amber-500 transition-colors"
+      >
+        <Info className="w-3 h-3" />
+      </div>
+      <AnimatePresence>
+        {show && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 5 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 5 }}
+            className="absolute z-[110] bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-gray-900 text-white text-[10px] font-medium rounded-xl shadow-2xl pointer-events-none leading-relaxed"
+          >
+            {text}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 export default function GenerationCalculator() {
   const [analysisMode, setAnalysisMode] = useState<'monthly' | 'annual' | null>(null);
@@ -57,6 +94,17 @@ export default function GenerationCalculator() {
   const [error, setError] = useState<string | null>(null);
   const [geoResult, setGeoResult] = useState<GeocodingResult | null>(null);
   const [irradianceResult, setIrradianceResult] = useState<IrradianceResult | null>(null);
+
+  // Adjustment Modal States
+  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [adjustmentFactor, setAdjustmentFactor] = useState<string>('0.90');
+  const [isAdjusting, setIsAdjusting] = useState(false);
+  const [pendingResults, setPendingResults] = useState<{
+    geo: GeocodingResult;
+    irradiance: IrradianceResult;
+  } | null>(null);
+
+  const [showInvoiceView, setShowInvoiceView] = useState(false);
 
   // States to store the parameters of the last successful search
   const [lastSearchedParams, setLastSearchedParams] = useState<{
@@ -143,24 +191,40 @@ export default function GenerationCalculator() {
         nasaService.fetchNasaIrradiance(latitude, longitude, startYear, endYear, analysisMode === 'monthly' ? selectedMonth : null)
       ]);
 
-      setGeoResult(geo);
-      setIrradianceResult(irradiance);
-      setLastSearchedParams({
-        mode: analysisMode,
-        month: analysisMode === 'monthly' ? selectedMonth : null,
-        startYear: startYear,
-        endYear: endYear,
-        kwp: parseFloat(kwp) || 0,
-        pr: parseFloat(powerRatio) || 0
-      });
+      setPendingResults({ geo, irradiance });
+      setShowAdjustmentModal(true);
+      setIsAdjusting(false);
+      setLoading(false);
     } catch (err: any) {
       setError(err.message || 'Ocurrió un error inesperado.');
     } finally {
-      setLoading(false);
+      // We don't set loading false here because we do it inside try or catch
     }
   };
 
-  const handleClear = () => {
+  const handleFinalizeCalculation = (factor: number) => {
+    if (!pendingResults) return;
+
+    const adjustedIrradiance = {
+      ...pendingResults.irradiance,
+      average: pendingResults.irradiance.average * factor
+    };
+
+    setGeoResult(pendingResults.geo);
+    setIrradianceResult(adjustedIrradiance);
+    setLastSearchedParams({
+      mode: analysisMode as 'monthly' | 'annual',
+      month: selectedMonth,
+      startYear: startYear!,
+      endYear: endYear!,
+      kwp: parseFloat(kwp),
+      pr: parseFloat(powerRatio),
+    });
+    setShowAdjustmentModal(false);
+    setPendingResults(null);
+  };
+
+  const handleClearInputs = () => {
     setAnalysisMode(null);
     setInputMode(null);
     setLat('');
@@ -174,11 +238,24 @@ export default function GenerationCalculator() {
     setEndYear(null);
     setStartYearPivot(new Date().getFullYear());
     setEndYearPivot(new Date().getFullYear());
+    setError(null);
+  };
+
+  const handleClearResults = () => {
     setGeoResult(null);
     setIrradianceResult(null);
     setLastSearchedParams(null);
     setError(null);
   };
+
+  const handleClear = () => {
+    handleClearInputs();
+    handleClearResults();
+  };
+
+  if (showInvoiceView) {
+    return <InvoiceAttachment onBack={() => setShowInvoiceView(false)} />;
+  }
 
   return (
     <div className="space-y-6">
@@ -192,12 +269,11 @@ export default function GenerationCalculator() {
             </div>
             <div>
               <h2 className="text-2xl font-black tracking-tight text-gray-900">Pronóstico de Generación Solar</h2>
-              <p className="text-sm text-gray-500 font-medium">Siga los pasos para realizar su consulta técnica</p>
             </div>
           </div>
 
           <div className="space-y-4">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-1">Paso 1: Seleccione Tipo de Análisis</label>
+            <label className="text-xs font-black text-gray-900 uppercase tracking-[0.2em] px-1">Seleccione Tipo de Análisis</label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <button 
                 onClick={() => setAnalysisMode('monthly')}
@@ -230,7 +306,7 @@ export default function GenerationCalculator() {
         {/* Step 2: Input Mode */}
         <div className={cn("mb-10 transition-all duration-500", !analysisMode && "opacity-30 pointer-events-none grayscale")}>
           <div className="space-y-4">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-1">Paso 2: Método de Ubicación</label>
+            <label className="text-xs font-black text-gray-900 uppercase tracking-[0.2em] px-1">Método de Ubicación</label>
             <div className="flex bg-gray-50 p-1.5 rounded-2xl border border-gray-100 w-fit">
               <button 
                 onClick={() => setInputMode('city')}
@@ -259,7 +335,7 @@ export default function GenerationCalculator() {
         {/* Step 3: Data Entry */}
         <div className={cn("transition-all duration-500", (!analysisMode || !inputMode) && "opacity-30 pointer-events-none grayscale")}>
           <div className="space-y-6">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-1 block">Paso 3: Ingrese los Datos</label>
+            <label className="text-xs font-black text-gray-900 uppercase tracking-[0.2em] px-1 block">Ingrese los Datos</label>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Location Inputs */}
@@ -603,7 +679,7 @@ export default function GenerationCalculator() {
           <div className="space-y-2">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">kWp Instalados</label>
             <div className="relative">
-              <Zap className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Grid3X3 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input 
                 type="number" 
                 value={kwp}
@@ -614,9 +690,12 @@ export default function GenerationCalculator() {
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Power Ratio (PR)</label>
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
+              Power Ratio (PR)
+              <Tooltip text="Ajuste porcentual que disminuye la generación del sistema por factores de sombras, días nublados, suciedad, caída de tensión, perdidas de potencia, los rangos van desde 0.8 a 0.9 segun consideraciones tecnicas." />
+            </label>
             <div className="relative">
-              <Zap className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <ArrowDownRight className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input 
                 type="number" 
                 step="0.01"
@@ -629,16 +708,21 @@ export default function GenerationCalculator() {
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
-          {(geoResult || irradianceResult || error) && (
-            <button 
-              onClick={handleClear}
-              className="px-6 py-3 bg-red-50 text-red-600 rounded-2xl font-bold hover:bg-red-100 transition-all flex items-center gap-2 group/clear"
-            >
-              <Trash2 className="w-4 h-4 transition-transform group-hover/clear:scale-110" />
-              Borrar
-            </button>
-          )}
+        <div className="mt-6 flex justify-end gap-3 flex-wrap">
+          <button 
+            onClick={() => setShowInvoiceView(true)}
+            className="px-6 py-3 bg-emerald-50 text-emerald-600 rounded-2xl font-bold hover:bg-emerald-100 transition-all flex items-center gap-2 group/invoice"
+          >
+            <Receipt className="w-4 h-4 transition-transform group-hover/invoice:scale-110" />
+            Adjunta factura de energia
+          </button>
+          <button 
+            onClick={handleClearInputs}
+            className="px-6 py-3 bg-gray-50 text-gray-500 rounded-2xl font-bold hover:bg-gray-100 transition-all flex items-center gap-2 group/clear"
+          >
+            <Eraser className="w-4 h-4 transition-transform group-hover/clear:scale-110" />
+            Limpiar campos
+          </button>
           <button 
             onClick={handleCalculate}
             disabled={loading}
@@ -660,6 +744,94 @@ export default function GenerationCalculator() {
       </div>
     </div>
   </section>
+
+      {/* Adjustment Modal */}
+      <AnimatePresence>
+        {showAdjustmentModal && pendingResults && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-[32px] shadow-2xl border border-gray-100 p-8 max-w-md w-full space-y-6 relative"
+            >
+              <button 
+                onClick={() => setShowAdjustmentModal(false)}
+                className="absolute top-4 right-4 p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold text-gray-900">Ajuste de Irradiancia</h3>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  Para la selección de ubicación ingresada se tiene{' '}
+                  <span className="font-bold text-amber-600">
+                    {pendingResults.irradiance.average.toFixed(2)} kW/m² {analysisMode === 'monthly' ? 'Mensual' : 'Anual'}
+                  </span>
+                </p>
+                <p className="text-sm text-gray-500">
+                  ¿Desea castigar este valor para ser más conservador?
+                </p>
+              </div>
+
+              {!isAdjusting ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setIsAdjusting(true)}
+                    className="px-6 py-3 bg-gray-50 text-gray-600 rounded-2xl font-bold hover:bg-gray-100 transition-all border border-gray-100"
+                  >
+                    Ajustar
+                  </button>
+                  <button
+                    onClick={() => handleFinalizeCalculation(1)}
+                    className="px-6 py-3 bg-amber-500 text-white rounded-2xl font-bold shadow-lg shadow-amber-100 hover:bg-amber-600 transition-all"
+                  >
+                    Conservar
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-gray-900 uppercase tracking-widest px-1">
+                      Factor de Ajuste
+                      <Tooltip text="Este ajuste no es necesario, ya se tuvieron en cuenta los ajustes por PR (power ratio)" />
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="1"
+                      value={adjustmentFactor}
+                      onChange={(e) => setAdjustmentFactor(e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
+                      placeholder="Ej: 0.90"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      onClick={() => setIsAdjusting(false)}
+                      className="px-6 py-3 bg-gray-50 text-gray-600 rounded-2xl font-bold hover:bg-gray-100 transition-all border border-gray-100"
+                    >
+                      Atrás
+                    </button>
+                    <button
+                      onClick={() => handleFinalizeCalculation(parseFloat(adjustmentFactor) || 1)}
+                      className="px-6 py-3 bg-amber-500 text-white rounded-2xl font-bold shadow-lg shadow-amber-100 hover:bg-amber-600 transition-all"
+                    >
+                      Aceptar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Results Section */}
       <AnimatePresence mode="wait">
@@ -763,12 +935,14 @@ export default function GenerationCalculator() {
                   </div>
                 </div>
 
-                <div className="mt-6 pt-6 border-t border-gray-50 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-500" />
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Fuente: NASA POWER API</span>
-                  </div>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Comunidad: Renewable Energy (RE)</span>
+                <div className="mt-8 pt-6 border-t border-gray-50 flex justify-center">
+                  <button 
+                    onClick={handleClearResults}
+                    className="px-8 py-3 bg-red-50 text-red-600 rounded-2xl font-bold hover:bg-red-100 transition-all flex items-center gap-2 group/delete shadow-sm"
+                  >
+                    <Trash2 className="w-4 h-4 transition-transform group-hover/delete:scale-110" />
+                    Borrar Resultados
+                  </button>
                 </div>
               </div>
             </div>

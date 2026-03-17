@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/growatt/(.*)",
+      "destination": "/api/growatt-proxy"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/$1"
     }
