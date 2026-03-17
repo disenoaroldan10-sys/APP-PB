@@ -15,6 +15,11 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 // Gemini is now handled on the server side to keep the API key secure
 
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set up PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
 interface InvoiceAttachmentProps {
   onBack: () => void;
 }
@@ -43,10 +48,9 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
       
-      // Basic validation for PDF size (Vercel has a 4.5MB limit for serverless functions)
-      // Base64 encoding adds ~33% overhead. So 3MB binary -> 4MB base64.
-      if (selectedFile.type === 'application/pdf' && selectedFile.size > 3 * 1024 * 1024) {
-        setErrorMessage('El PDF es demasiado grande (máx 3MB). Por favor sube una versión más ligera o una imagen.');
+      // Increased limit to 10MB, but we'll process it on the client
+      if (selectedFile.size > 10 * 1024 * 1024) {
+        setErrorMessage('El archivo es demasiado grande (máx 10MB).');
         setUploadStatus('error');
         return;
       }
@@ -56,6 +60,31 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
       setErrorMessage(null);
       setExtractedData(null);
     }
+  };
+
+  const convertPdfToImage = async (file: File): Promise<string> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    
+    // We'll just take the first page as it usually contains the main data
+    // This keeps the payload small enough for Vercel
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 2.0 }); // Good resolution for OCR
+    
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+    
+    if (!context) throw new Error('Could not create canvas context');
+    
+    await page.render({
+      canvasContext: context,
+      viewport: viewport
+    } as any).promise;
+    
+    // Compress as JPEG
+    return canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
   };
 
   const compressImage = (file: File): Promise<string> => {
@@ -108,12 +137,19 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
 
     try {
       let base64 = '';
+      let mimeType = file.type;
       
       if (file.type.startsWith('image/')) {
         // Compress images
         base64 = await compressImage(file);
+        mimeType = 'image/jpeg';
+      } else if (file.type === 'application/pdf') {
+        // For PDFs, convert first page to image to bypass Vercel size limits
+        setIsUploading(true); // Ensure loading state is active
+        base64 = await convertPdfToImage(file);
+        mimeType = 'image/jpeg';
       } else {
-        // For PDFs, just read as base64
+        // For other files, just read as base64 (fallback)
         base64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.readAsDataURL(file);
@@ -132,7 +168,7 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
         },
         body: JSON.stringify({
           base64,
-          mimeType: file.type
+          mimeType
         }),
       });
 
@@ -212,7 +248,7 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
                     Arrastra y suelta o haz clic para buscar (PDF o Imagen)
                   </p>
                   <p className="text-[10px] text-amber-600 font-medium mt-1">
-                    Nota: Máximo 3MB para PDFs. Las imágenes se comprimen automáticamente.
+                    Nota: Soporta archivos de hasta 10MB. Los PDFs grandes se procesan automáticamente.
                   </p>
                 </div>
               </label>
