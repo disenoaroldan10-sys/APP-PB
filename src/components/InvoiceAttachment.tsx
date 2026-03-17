@@ -12,7 +12,9 @@ import {
   Copy,
   Check,
   Save,
-  FileSearch
+  FileSearch,
+  Sun,
+  Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
@@ -89,8 +91,8 @@ export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentP
     // Render each page to a canvas
     for (let i = 1; i <= numPages; i++) {
       const page = await pdf.getPage(i);
-      // Use scale 1.2 to balance quality and size for multi-page PDFs
-      const viewport = page.getViewport({ scale: 1.2 }); 
+      // Use scale 2.0 to ensure text is legible for OCR
+      const viewport = page.getViewport({ scale: 2.0 }); 
       
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
@@ -123,8 +125,8 @@ export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentP
       currentY += canvas.height;
     }
     
-    // Compress as JPEG with quality 0.5 to keep multi-page results under Vercel's 4.5MB limit
-    return finalCanvas.toDataURL('image/jpeg', 0.5).split(',')[1];
+    // Compress as JPEG with quality 0.85 to keep text legible
+    return finalCanvas.toDataURL('image/jpeg', 0.85).split(',')[1];
   };
 
   const compressImage = (file: File): Promise<string> => {
@@ -139,9 +141,9 @@ export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentP
           let width = img.width;
           let height = img.height;
 
-          // Reduced max dimensions to 1200px to be safer with Vercel's 4.5MB limit
-          const MAX_WIDTH = 1200;
-          const MAX_HEIGHT = 1200;
+          // Use 2400px to ensure small text is legible for OCR
+          const MAX_WIDTH = 2400;
+          const MAX_HEIGHT = 2400;
 
           if (width > height) {
             if (width > MAX_WIDTH) {
@@ -160,8 +162,8 @@ export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentP
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
 
-          // Compress as JPEG with 0.6 quality
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+          // Compress as JPEG with 0.85 quality for OCR
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
           resolve(dataUrl.split(',')[1]);
         };
         img.onerror = (err) => reject(err);
@@ -303,6 +305,7 @@ export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentP
                     invoiceType === 'AGPE' ? "bg-white shadow-sm text-emerald-600" : "text-gray-400 hover:text-gray-600"
                   )}
                 >
+                  <Sun className="w-4 h-4" />
                   Factura AGPE
                 </button>
                 <button 
@@ -312,6 +315,7 @@ export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentP
                     invoiceType === 'CONVENCIONAL' ? "bg-white shadow-sm text-emerald-600" : "text-gray-400 hover:text-gray-600"
                   )}
                 >
+                  <Zap className="w-4 h-4" />
                   Factura Convencional
                 </button>
               </div>

@@ -23,7 +23,12 @@ import {
   AlertCircle,
   ChevronDown,
   Menu,
-  ExternalLink
+  ExternalLink,
+  Calculator,
+  FileSearch,
+  Receipt,
+  Zap,
+  LayoutDashboard
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
@@ -38,9 +43,12 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// Custom Logo Component representing Growth
+// Custom Logo Component representing Growth and Energy
 const Logo = ({ className }: { className?: string }) => (
-  <TrendingUp className={cn("w-full h-full text-indigo-600", className)} />
+  <div className={cn("relative flex items-center justify-center", className)}>
+    <div className="absolute inset-0 bg-indigo-500/10 rounded-full blur-lg animate-pulse" />
+    <Zap className="w-full h-full text-indigo-600 relative z-10" />
+  </div>
 );
 
 const XmLogo = ({ className }: { className?: string }) => (
@@ -201,17 +209,19 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] text-[#1A1C1E] font-sans selection:bg-indigo-100">
+    <div className="min-h-screen bg-[#F8F9FA] text-[#1A1C1E] font-sans selection:bg-indigo-100 flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-gray-100/50 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div 
-              className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg shadow-indigo-100 overflow-hidden border border-gray-100 p-1.5 cursor-pointer"
+          <div className="flex items-center gap-4">
+            <motion.div 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-100/50 overflow-hidden border border-gray-100 p-2 cursor-pointer group"
               onClick={() => setCurrentView('dashboard')}
             >
-              <Logo />
-            </div>
+              <Logo className="group-hover:rotate-12 transition-transform duration-300" />
+            </motion.div>
 
             {/* Navigation Dropdown */}
             <div className="relative">
@@ -242,37 +252,49 @@ export default function App() {
                       <button 
                         onClick={() => { setCurrentView('dashboard'); setIsMenuOpen(false); }}
                         className={cn(
-                          "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center justify-between group/item",
-                          currentView === 'dashboard' ? "bg-blue-50 text-blue-600" : "hover:bg-blue-50 text-gray-700"
+                          "w-full text-left px-4 py-3 rounded-xl transition-all flex items-center gap-3 group/item",
+                          currentView === 'dashboard' ? "bg-blue-50 text-blue-600 shadow-sm" : "hover:bg-blue-50 text-gray-700"
                         )}
                       >
+                        <div className={cn("p-2 rounded-lg transition-colors", currentView === 'dashboard' ? "bg-blue-100" : "bg-gray-50 group-hover/item:bg-blue-100")}>
+                          <TrendingUp className="w-4 h-4" />
+                        </div>
                         <span className={cn("text-sm font-bold group-hover/item:text-blue-600", currentView === 'dashboard' && "text-blue-600")}>Precios en bolsa</span>
                       </button>
                       <button 
                         onClick={() => { setCurrentView('calculos'); setIsMenuOpen(false); }}
                         className={cn(
-                          "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center justify-between group/item",
-                          currentView === 'calculos' ? "bg-indigo-50 text-indigo-600" : "hover:bg-indigo-50 text-gray-700"
+                          "w-full text-left px-4 py-3 rounded-xl transition-all flex items-center gap-3 group/item",
+                          currentView === 'calculos' ? "bg-indigo-50 text-indigo-600 shadow-sm" : "hover:bg-indigo-50 text-gray-700"
                         )}
                       >
+                        <div className={cn("p-2 rounded-lg transition-colors", currentView === 'calculos' ? "bg-indigo-100" : "bg-gray-50 group-hover/item:bg-indigo-100")}>
+                          <Calculator className="w-4 h-4" />
+                        </div>
                         <span className={cn("text-sm font-bold group-hover/item:text-indigo-600", currentView === 'calculos' && "text-indigo-600")}>Cálculos de generación y facturación</span>
                       </button>
                       <button 
                         onClick={() => { setCurrentView('analizador'); setIsMenuOpen(false); }}
                         className={cn(
-                          "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center justify-between group/item",
-                          currentView === 'analizador' ? "bg-indigo-50 text-indigo-600" : "hover:bg-indigo-50 text-gray-700"
+                          "w-full text-left px-4 py-3 rounded-xl transition-all flex items-center gap-3 group/item",
+                          currentView === 'analizador' ? "bg-indigo-50 text-indigo-600 shadow-sm" : "hover:bg-indigo-50 text-gray-700"
                         )}
                       >
+                        <div className={cn("p-2 rounded-lg transition-colors", currentView === 'analizador' ? "bg-indigo-100" : "bg-gray-50 group-hover/item:bg-indigo-100")}>
+                          <FileSearch className="w-4 h-4" />
+                        </div>
                         <span className={cn("text-sm font-bold group-hover/item:text-indigo-600", currentView === 'analizador' && "text-indigo-600")}>Datos analizador de redes</span>
                       </button>
                       <button 
                         onClick={() => { setCurrentView('cu'); setIsMenuOpen(false); }}
                         className={cn(
-                          "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center justify-between group/item",
-                          currentView === 'cu' ? "bg-indigo-50 text-indigo-600" : "hover:bg-indigo-50 text-gray-700"
+                          "w-full text-left px-4 py-3 rounded-xl transition-all flex items-center gap-3 group/item",
+                          currentView === 'cu' ? "bg-indigo-50 text-indigo-600 shadow-sm" : "hover:bg-indigo-50 text-gray-700"
                         )}
                       >
+                        <div className={cn("p-2 rounded-lg transition-colors", currentView === 'cu' ? "bg-indigo-100" : "bg-gray-50 group-hover/item:bg-indigo-100")}>
+                          <Receipt className="w-4 h-4" />
+                        </div>
                         <span className={cn("text-sm font-bold group-hover/item:text-indigo-600", currentView === 'cu' && "text-indigo-600")}>Valor del CU</span>
                       </button>
 
@@ -282,10 +304,13 @@ export default function App() {
                       <button 
                         onClick={() => { setCurrentView('fasoriales'); setIsMenuOpen(false); }}
                         className={cn(
-                          "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center justify-between group/item",
-                          currentView === 'fasoriales' ? "bg-indigo-50 text-indigo-600" : "hover:bg-indigo-50 text-gray-700"
+                          "w-full text-left px-4 py-3 rounded-xl transition-all flex items-center gap-3 group/item",
+                          currentView === 'fasoriales' ? "bg-indigo-50 text-indigo-600 shadow-sm" : "hover:bg-indigo-50 text-gray-700"
                         )}
                       >
+                        <div className={cn("p-2 rounded-lg transition-colors", currentView === 'fasoriales' ? "bg-indigo-100" : "bg-gray-50 group-hover/item:bg-indigo-100")}>
+                          <Zap className="w-4 h-4" />
+                        </div>
                         <span className={cn("text-sm font-bold group-hover/item:text-indigo-600", currentView === 'fasoriales' && "text-indigo-600")}>Cálculos de diagramas fasoriales</span>
                       </button>
                     </motion.div>
@@ -298,10 +323,10 @@ export default function App() {
               <div>
                 <div className="flex items-center gap-3">
                   <h1 className="text-xl font-bold tracking-tight text-gray-900">
-                    {currentView === 'dashboard' && "Precios en bolsa mercado Eléctrico Colombiano"}
-                    {currentView === 'calculos' && "Cálculos de generación y facturación"}
-                    {currentView === 'analizador' && "Datos analizador de redes"}
-                    {currentView === 'cu' && "Valor del CU"}
+                    {currentView === 'dashboard' && "Precio kW/H en Bolsa"}
+                    {currentView === 'calculos' && "Generación y facturación"}
+                    {currentView === 'analizador' && "Analizador"}
+                    {currentView === 'cu' && "Cu kW/h"}
                     {currentView === 'fasoriales' && "Cálculos de diagramas fasoriales"}
                   </h1>
                 </div>
@@ -315,11 +340,11 @@ export default function App() {
           <div className="flex items-center gap-4">
             {(() => {
               const configs: Record<string, { label: string; color: string }> = {
-                dashboard: { label: 'Mercado Eléctrico', color: 'bg-emerald-500' },
-                calculos: { label: 'Gestión de Facturación', color: 'bg-amber-500' },
-                analizador: { label: 'Calidad de Potencia', color: 'bg-blue-500' },
+                dashboard: { label: 'Promedio en bolsa', color: 'bg-emerald-500' },
+                calculos: { label: 'Generación', color: 'bg-amber-500' },
+                analizador: { label: 'Calidad Energia', color: 'bg-blue-500' },
                 cu: { label: 'Análisis Tarifario', color: 'bg-rose-500' },
-                fasoriales: { label: 'Ingeniería Vectorial', color: 'bg-violet-500' }
+                fasoriales: { label: 'Circuito RLC', color: 'bg-violet-500' }
               };
               const config = configs[currentView] || configs.dashboard;
               return (
@@ -333,7 +358,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-6 py-8 w-full flex-1">
         <AnimatePresence mode="wait">
           {currentView === 'dashboard' ? (
             <motion.div 
@@ -739,8 +764,8 @@ export default function App() {
       </AnimatePresence>
 
       {/* Footer */}
-      <footer className="max-w-7xl mx-auto px-6 py-12 border-t border-gray-100 mt-12">
-        <div className="flex flex-col items-center justify-center gap-6 text-center">
+      <footer className="w-full bg-white border-t border-gray-200 mt-auto py-12">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col items-center justify-center gap-6 text-center">
           {currentView === 'dashboard' && (
             <div className="flex flex-col items-center gap-4">
               <div className="flex flex-col items-center gap-2">

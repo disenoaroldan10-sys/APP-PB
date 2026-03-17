@@ -28,9 +28,23 @@ async function startServer() {
     }
 
     try {
-      const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-      if (!apiKey) {
-        throw new Error('GEMINI_API_KEY or VITE_GEMINI_API_KEY is not set on the server');
+      // Prioritize a custom key name to bypass platform-locked secrets
+      const apiKey = process.env.MI_CLAVE_GEMINI || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+      
+      console.log('API Key detection:', {
+        hasCustomKey: !!process.env.MI_CLAVE_GEMINI,
+        hasGeminiKey: !!process.env.GEMINI_API_KEY,
+        hasViteKey: !!process.env.VITE_GEMINI_API_KEY,
+        usingKeySource: process.env.MI_CLAVE_GEMINI ? 'MI_CLAVE_GEMINI' : (process.env.GEMINI_API_KEY ? 'GEMINI_API_KEY' : 'VITE_GEMINI_API_KEY'),
+        keyLength: apiKey?.length || 0
+      });
+
+      if (!apiKey || apiKey === 'your_api_key_here' || apiKey.includes('Free Tier')) {
+        console.error('GEMINI_API_KEY or VITE_GEMINI_API_KEY is missing or invalid');
+        return res.status(500).json({ 
+          error: 'Configuración de API incompleta',
+          details: 'No se encontró una clave de API válida. Por favor, añade GEMINI_API_KEY en los Secrets de AI Studio con tu clave de Google AI Studio.'
+        });
       }
 
       const ai = new GoogleGenAI({ apiKey });
@@ -46,9 +60,9 @@ Campos específicos:
 - Numero de contrato: El número de contrato o cuenta.
 - Cliente: Nombre del titular.
 - Energia: El consumo de energía activa en kWh del periodo actual. Busca el valor numérico bajo la columna 'consumo' en la sección de 'Energía' (por ejemplo, '23 kWh').
-- Energia PROM: El promedio de consumo de los últimos 6 meses en kWh. Busca en el gráfico de 'Histórico de consumos' la barra final etiquetada como 'PROM' o el texto 'PROMEDIO DE LOS ÚLTIMOS 6 MESES = PROM'. Extrae el valor numérico (por ejemplo, '33').
-- Comercialización: Valor unitario de comercialización.
-- Generación: Valor unitario de generación.
+- Energia PROM: El promedio de consumo de energía en kWh. Busca el gráfico de barras 'Histórico de consumos (kWh) y promedio'. En la parte inferior de las barras están los meses, luego 'Actual' y al final 'PROM'. Encuentra la barra que dice 'PROM' en la base, extrae el número que está escrito en la parte superior de esa barra amarilla y añade ' kWh' al final (por ejemplo, '145 kWh'). No extraigas el valor de la barra 'Actual'.
+- Comercialización: Valor unitario de comercialización. Búscalo en la sección de 'Costo Unitario de Prestación del Servicio' (CU) o 'Tarifa'. Suele estar representado por la letra 'C' o 'Cv' (por ejemplo, '123.45'). Extrae solo el número.
+- Generación: Valor unitario de generación. Búscalo en la misma sección de 'Costo Unitario'. Suele estar representado por la letra 'G' (por ejemplo, '345.67'). Extrae solo el número.
 - Total Energia: El valor total a pagar por el concepto de energía (por ejemplo, '$ 16.797,16').`;
         properties = {
           cliente: { type: Type.STRING },
@@ -77,36 +91,72 @@ Campos específicos:
         requiredFields = ["cliente", "capacidadInstalada", "importoConsumo", "excedentes", "saldo", "comercializacion", "generacion", "contrato", "totalEnergia"];
       }
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [
-          {
-            parts: [
-              { text: prompt },
-              {
-                inlineData: {
-                  mimeType,
-                  data: base64
-                }
-              }
-            ]
-          }
-        ],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties,
-            required: requiredFields
-          }
-        }
-      });
+      // Retry logic for 429 errors
+      let attempts = 0;
+      const maxAttempts = 3;
+      let lastError = null;
 
-      const data = JSON.parse(response.text || '{}');
-      res.json(data);
+      while (attempts < maxAttempts) {
+        try {
+          const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: [
+              {
+                parts: [
+                  { text: prompt },
+                  {
+                    inlineData: {
+                      mimeType,
+                      data: base64
+                    }
+                  }
+                ]
+              }
+            ],
+            config: {
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: Type.OBJECT,
+                properties,
+                required: requiredFields
+              }
+            }
+          });
+
+          const data = JSON.parse(response.text || '{}');
+          return res.json(data);
+        } catch (error: any) {
+          lastError = error;
+          attempts++;
+          
+          // Check if it's a quota error (429)
+          const isQuotaError = error.message?.includes('429') || error.message?.includes('quota') || error.status === 'RESOURCE_EXHAUSTED';
+          
+          if (isQuotaError && attempts < maxAttempts) {
+            console.log(`Quota exceeded (429). Attempt ${attempts} of ${maxAttempts}. Retrying in 3 seconds...`);
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            continue;
+          }
+          
+          // If not a quota error or we've reached max attempts, break and handle error
+          break;
+        }
+      }
+
+      // If we get here, all attempts failed
+      console.error('Error in Gemini extraction after retries:', lastError?.message);
+      
+      if (lastError?.message?.includes('429') || lastError?.status === 'RESOURCE_EXHAUSTED') {
+        return res.status(429).json({ 
+          error: 'Límite de cuota excedido', 
+          details: 'Has alcanzado el límite de peticiones gratuitas de Gemini. Por favor, espera unos minutos o intenta de nuevo mañana. También puedes usar tu propia API Key en los ajustes para evitar este límite.' 
+        });
+      }
+
+      res.status(500).json({ error: 'Error al extraer datos de la factura', details: lastError?.message });
     } catch (error: any) {
-      console.error('Error in Gemini extraction:', error.message);
-      res.status(500).json({ error: 'Error extracting data from invoice', details: error.message });
+      console.error('Unexpected error in extraction route:', error.message);
+      res.status(500).json({ error: 'Error inesperado en el servidor', details: error.message });
     }
   });
 
