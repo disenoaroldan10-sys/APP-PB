@@ -17,11 +17,11 @@ async function startServer() {
 
   // Gemini API endpoint for invoice extraction
   app.post('/api/extract-invoice', async (req, res) => {
-    const { base64, mimeType } = req.body;
+    const { base64, mimeType, invoiceType } = req.body;
     
     // Log request size for debugging
     const sizeInMB = Buffer.from(base64 || '', 'base64').length / (1024 * 1024);
-    console.log(`Extract invoice request: ${mimeType}, size: ${sizeInMB.toFixed(2)} MB`);
+    console.log(`Extract invoice request: ${mimeType}, type: ${invoiceType}, size: ${sizeInMB.toFixed(2)} MB`);
 
     if (!base64 || !mimeType) {
       return res.status(400).json({ error: 'Missing base64 data or mimeType' });
@@ -34,14 +34,46 @@ async function startServer() {
       }
 
       const ai = new GoogleGenAI({ apiKey });
+      
+      let prompt = "";
+      let properties: any = {};
+      let requiredFields: string[] = [];
+
+      if (invoiceType === 'CONVENCIONAL') {
+        prompt = "Analiza esta factura de energía CONVENCIONAL y extrae los siguientes campos en formato JSON. Si no encuentras un valor, pon 'No especificado'. Campos: Numero de contrato, Cliente, Energia (Consumo actual), Energia PROM (Promedio de consumo), Comercialización, Generación, Total a pagar.";
+        properties = {
+          cliente: { type: Type.STRING },
+          contrato: { type: Type.STRING },
+          energia: { type: Type.STRING },
+          energiaProm: { type: Type.STRING },
+          comercializacion: { type: Type.STRING },
+          generacion: { type: Type.STRING },
+          totalEnergia: { type: Type.STRING }
+        };
+        requiredFields = ["cliente", "contrato", "energia", "energiaProm", "comercializacion", "generacion", "totalEnergia"];
+      } else {
+        // Default to AGPE
+        prompt = "Analiza esta factura de energía AGPE (Autogeneración a Pequeña Escala) y extrae los siguientes campos en formato JSON. Si no encuentras un valor, pon 'No especificado'. Campos: Cliente, Capacidad instalada, Importo/consumo, Excedentes, Saldo, Comercialización, Generación, Numero de contrato, Total a pagar.";
+        properties = {
+          cliente: { type: Type.STRING },
+          capacidadInstalada: { type: Type.STRING },
+          importoConsumo: { type: Type.STRING },
+          excedentes: { type: Type.STRING },
+          saldo: { type: Type.STRING },
+          comercializacion: { type: Type.STRING },
+          generacion: { type: Type.STRING },
+          contrato: { type: Type.STRING },
+          totalEnergia: { type: Type.STRING }
+        };
+        requiredFields = ["cliente", "capacidadInstalada", "importoConsumo", "excedentes", "saldo", "comercializacion", "generacion", "contrato", "totalEnergia"];
+      }
+
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: [
           {
             parts: [
-              {
-                text: "Analiza esta factura de energía y extrae los siguientes campos en formato JSON. Si no encuentras un valor, pon 'No especificado'. Campos: Cliente, Capacidad instalada, Importo/consumo, Excedentes, Saldo, Comercialización, Generación, Numero de contrato, Total a pagar."
-              },
+              { text: prompt },
               {
                 inlineData: {
                   mimeType,
@@ -55,18 +87,8 @@ async function startServer() {
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
-            properties: {
-              cliente: { type: Type.STRING },
-              capacidadInstalada: { type: Type.STRING },
-              importoConsumo: { type: Type.STRING },
-              excedentes: { type: Type.STRING },
-              saldo: { type: Type.STRING },
-              comercializacion: { type: Type.STRING },
-              generacion: { type: Type.STRING },
-              numeroContrato: { type: Type.STRING },
-              totalAPagar: { type: Type.STRING }
-            },
-            required: ["cliente", "capacidadInstalada", "importoConsumo", "excedentes", "saldo", "comercializacion", "generacion", "numeroContrato", "totalAPagar"]
+            properties,
+            required: requiredFields
           }
         }
       });

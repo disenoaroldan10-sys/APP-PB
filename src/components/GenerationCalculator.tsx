@@ -70,13 +70,15 @@ const Tooltip = ({ text }: { text: string }) => {
 interface ExtractedData {
   cliente: string;
   contrato: string;
-  capacidadInstalada: string;
-  importoConsumo: string;
-  excedentes: string;
-  saldo: string;
+  capacidadInstalada?: string;
+  importoConsumo?: string;
+  excedentes?: string;
+  saldo?: string;
   comercializacion: string;
   generacion: string;
   totalEnergia: string;
+  energia?: string;
+  energiaProm?: string;
 }
 
 export default function GenerationCalculator() {
@@ -288,8 +290,15 @@ export default function GenerationCalculator() {
             <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center">
               <Sun className="w-6 h-6 text-amber-500" />
             </div>
-            <div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
               <h2 className="text-2xl font-black tracking-tight text-gray-900">Pronóstico de Generación Solar</h2>
+              <button 
+                onClick={() => setShowInvoiceView(true)}
+                className="px-6 py-3 bg-emerald-50 text-emerald-600 rounded-2xl font-bold hover:bg-emerald-100 transition-all flex items-center gap-2 group/invoice w-fit"
+              >
+                <Receipt className="w-4 h-4 transition-transform group-hover/invoice:scale-110" />
+                Adjunta factura de energia
+              </button>
             </div>
           </div>
 
@@ -731,13 +740,6 @@ export default function GenerationCalculator() {
 
         <div className="mt-6 flex justify-end gap-3 flex-wrap">
           <button 
-            onClick={() => setShowInvoiceView(true)}
-            className="px-6 py-3 bg-emerald-50 text-emerald-600 rounded-2xl font-bold hover:bg-emerald-100 transition-all flex items-center gap-2 group/invoice"
-          >
-            <Receipt className="w-4 h-4 transition-transform group-hover/invoice:scale-110" />
-            Adjunta factura de energia
-          </button>
-          <button 
             onClick={handleClearInputs}
             className="px-6 py-3 bg-gray-50 text-gray-500 rounded-2xl font-bold hover:bg-gray-100 transition-all flex items-center gap-2 group/clear"
           >
@@ -1000,10 +1002,15 @@ export default function GenerationCalculator() {
                 {[
                   { label: 'Cliente', value: savedInvoiceData.cliente },
                   { label: 'Contrato', value: savedInvoiceData.contrato },
-                  { label: 'Capacidad Instalada', value: savedInvoiceData.capacidadInstalada },
-                  { label: 'Importó / Consumo', value: savedInvoiceData.importoConsumo },
-                  { label: 'Excedentes', value: savedInvoiceData.excedentes },
-                  { label: 'Saldo', value: savedInvoiceData.saldo },
+                  ...(savedInvoiceData.capacidadInstalada ? [
+                    { label: 'Capacidad Instalada', value: savedInvoiceData.capacidadInstalada },
+                    { label: 'Importó / Consumo', value: savedInvoiceData.importoConsumo },
+                    { label: 'Excedentes', value: savedInvoiceData.excedentes },
+                    { label: 'Saldo', value: savedInvoiceData.saldo },
+                  ] : [
+                    { label: 'Energía (Consumo)', value: savedInvoiceData.energia },
+                    { label: 'Energía PROM', value: savedInvoiceData.energiaProm },
+                  ]),
                   { label: 'Comercialización', value: savedInvoiceData.comercializacion },
                   { label: 'Generación', value: savedInvoiceData.generacion },
                   { label: 'Total Energía', value: savedInvoiceData.totalEnergia, highlight: true },

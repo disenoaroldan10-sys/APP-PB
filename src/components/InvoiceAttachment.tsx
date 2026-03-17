@@ -11,9 +11,17 @@ import {
   Loader2,
   Copy,
   Check,
-  Save
+  Save,
+  FileSearch
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
 // Gemini is now handled on the server side to keep the API key secure
 
 import * as pdfjsLib from 'pdfjs-dist';
@@ -29,17 +37,20 @@ interface InvoiceAttachmentProps {
 interface ExtractedData {
   cliente: string;
   contrato: string;
-  capacidadInstalada: string;
-  importoConsumo: string;
-  excedentes: string;
-  saldo: string;
+  capacidadInstalada?: string;
+  importoConsumo?: string;
+  excedentes?: string;
+  saldo?: string;
   comercializacion: string;
   generacion: string;
   totalEnergia: string;
+  energia?: string;
+  energiaProm?: string;
 }
 
 export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentProps) {
   const [file, setFile] = useState<File | null>(null);
+  const [invoiceType, setInvoiceType] = useState<'AGPE' | 'CONVENCIONAL'>('AGPE');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -200,7 +211,8 @@ export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentP
 
       const payload = JSON.stringify({
         base64,
-        mimeType
+        mimeType,
+        invoiceType
       });
 
       // Vercel has a 4.5MB limit for the entire request body
@@ -279,12 +291,46 @@ export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentP
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Upload Section */}
         <div className={extractedData ? "lg:col-span-5" : "lg:col-span-12"}>
-          <section className="bg-white rounded-[32px] p-8 shadow-sm border border-gray-100 h-full">
+          <section className={cn(
+            "bg-white rounded-[32px] p-8 shadow-sm border border-gray-100",
+            extractedData && "h-full"
+          )}>
+            {/* Invoice Type Selection */}
+            <div className="mb-8">
+              <label className="text-xs font-black text-gray-900 uppercase tracking-[0.2em] px-1 block mb-4">Tipo de Factura</label>
+              <div className="flex bg-gray-50 p-1.5 rounded-2xl border border-gray-100 w-full sm:w-fit">
+                <button 
+                  onClick={() => setInvoiceType('AGPE')}
+                  className={cn(
+                    "flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black transition-all flex-1 sm:flex-none justify-center",
+                    invoiceType === 'AGPE' ? "bg-white shadow-sm text-emerald-600" : "text-gray-400 hover:text-gray-600"
+                  )}
+                >
+                  Factura AGPE
+                </button>
+                <button 
+                  onClick={() => setInvoiceType('CONVENCIONAL')}
+                  className={cn(
+                    "flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black transition-all flex-1 sm:flex-none justify-center",
+                    invoiceType === 'CONVENCIONAL' ? "bg-white shadow-sm text-emerald-600" : "text-gray-400 hover:text-gray-600"
+                  )}
+                >
+                  Factura Convencional
+                </button>
+              </div>
+              <p className="mt-3 text-xs text-gray-500 px-1">
+                {invoiceType === 'AGPE' 
+                  ? "Para usuarios con autogeneración a pequeña escala (paneles solares)." 
+                  : "Para usuarios con servicio de energía tradicional sin autogeneración."}
+              </p>
+            </div>
+
             <div 
-              className={`
-                border-2 border-dashed rounded-[24px] p-12 text-center transition-all h-full flex flex-col justify-center
-                ${file ? 'border-emerald-200 bg-emerald-50/30' : 'border-gray-200 hover:border-emerald-300 hover:bg-gray-50/50'}
-              `}
+              className={cn(
+                "border-2 border-dashed rounded-[24px] p-8 text-center transition-all flex flex-col justify-center",
+                extractedData ? "h-full" : "min-h-[300px]",
+                file ? "border-emerald-200 bg-emerald-50/30" : "border-gray-200 hover:border-emerald-300 hover:bg-gray-50/50"
+              )}
             >
               <input 
                 type="file" 
@@ -384,10 +430,15 @@ export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentP
                   {[
                     { label: 'Cliente', value: extractedData.cliente, key: 'cliente' },
                     { label: 'Contrato', value: extractedData.contrato, key: 'contrato' },
-                    { label: 'FNCER Capacidad Instalada', value: extractedData.capacidadInstalada, key: 'capacidadInstalada' },
-                    { label: 'Importó / Consumo', value: extractedData.importoConsumo, key: 'importoConsumo' },
-                    { label: 'Excedentes', value: extractedData.excedentes, key: 'excedentes' },
-                    { label: 'Saldo', value: extractedData.saldo, key: 'saldo' },
+                    ...(invoiceType === 'AGPE' ? [
+                      { label: 'Capacidad Instalada', value: extractedData.capacidadInstalada, key: 'capacidadInstalada' },
+                      { label: 'Importó / Consumo', value: extractedData.importoConsumo, key: 'importoConsumo' },
+                      { label: 'Excedentes', value: extractedData.excedentes, key: 'excedentes' },
+                      { label: 'Saldo', value: extractedData.saldo, key: 'saldo' },
+                    ] : [
+                      { label: 'Energía (Consumo)', value: extractedData.energia, key: 'energia' },
+                      { label: 'Energía PROM', value: extractedData.energiaProm, key: 'energiaProm' },
+                    ]),
                     { label: 'Comercialización', value: extractedData.comercializacion, key: 'comercializacion' },
                     { label: 'Generación', value: extractedData.generacion, key: 'generacion' },
                     { label: 'Total Energía', value: extractedData.totalEnergia, key: 'totalEnergia', highlight: true },
@@ -405,10 +456,10 @@ export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentP
                       </p>
                       <div className="flex items-center justify-between gap-2">
                         <p className={`font-bold truncate ${item.highlight ? 'text-2xl text-emerald-700' : 'text-sm text-gray-900'}`}>
-                          {item.value}
+                          {item.value || 'No especificado'}
                         </p>
                         <button 
-                          onClick={() => copyToClipboard(item.value, item.key)}
+                          onClick={() => copyToClipboard(item.value || '', item.key)}
                           className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-white rounded-lg transition-all opacity-0 group-hover:opacity-100"
                         >
                           {copiedField === item.key ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
