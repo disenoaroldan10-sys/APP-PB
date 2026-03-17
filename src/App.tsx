@@ -32,7 +32,6 @@ import { format } from 'date-fns';
 import { fetchPrecioBolsa, getMonthRange, XmPriceData, listMetrics } from './services/xmService';
 import PhasorCalculator from './components/PhasorCalculator';
 import GenerationCalculator from './components/GenerationCalculator';
-import GrowattDashboard from './components/GrowattDashboard';
 
 // Utility for tailwind classes
 function cn(...inputs: ClassValue[]) {
@@ -63,6 +62,18 @@ const XmLogo = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const NasaLogo = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 100 60" className={cn("h-10 w-auto", className)} xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="30" r="28" fill="#0B3D91" />
+    <path d="M20 45 L50 15 L80 45" stroke="#FC3D21" strokeWidth="4" fill="none" strokeLinecap="round" />
+    <text x="50" y="38" fontFamily="sans-serif" fontSize="18" fontWeight="900" fill="white" textAnchor="middle" style={{ letterSpacing: '1px' }}>NASA</text>
+    <circle cx="35" cy="20" r="1" fill="white" />
+    <circle cx="65" cy="25" r="1" fill="white" />
+    <circle cx="45" cy="40" r="0.5" fill="white" />
+    <circle cx="70" cy="35" r="0.5" fill="white" />
+  </svg>
+);
+
 interface SelectedMonth {
   id: string;
   year: number;
@@ -75,7 +86,7 @@ interface SelectedMonth {
 }
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'calculos' | 'analizador' | 'cu' | 'fasoriales' | 'growatt'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'calculos' | 'analizador' | 'cu' | 'fasoriales'>('dashboard');
   const [selectedMonths, setSelectedMonths] = useState<SelectedMonth[]>([]);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [showYearMatrix, setShowYearMatrix] = useState(false);
@@ -265,16 +276,6 @@ export default function App() {
                         <span className={cn("text-sm font-bold group-hover/item:text-indigo-600", currentView === 'cu' && "text-indigo-600")}>Valor del CU</span>
                       </button>
 
-                      <button 
-                        onClick={() => { setCurrentView('growatt'); setIsMenuOpen(false); }}
-                        className={cn(
-                          "w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center justify-between group/item",
-                          currentView === 'growatt' ? "bg-emerald-50 text-emerald-600" : "hover:bg-emerald-50 text-gray-700"
-                        )}
-                      >
-                        <span className={cn("text-sm font-bold group-hover/item:text-emerald-600", currentView === 'growatt' && "text-emerald-600")}>Generación Growatt</span>
-                      </button>
-
                       <div className="px-3 py-2 mt-2 mb-1 border-t border-gray-50 pt-3">
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Cálculos eléctricos</p>
                       </div>
@@ -302,7 +303,6 @@ export default function App() {
                     {currentView === 'analizador' && "Datos analizador de redes"}
                     {currentView === 'cu' && "Valor del CU"}
                     {currentView === 'fasoriales' && "Cálculos de diagramas fasoriales"}
-                    {currentView === 'growatt' && "Monitoreo de Generación Growatt"}
                   </h1>
                 </div>
                 {currentView === 'dashboard' && (
@@ -319,8 +319,7 @@ export default function App() {
                 calculos: { label: 'Gestión de Facturación', color: 'bg-amber-500' },
                 analizador: { label: 'Calidad de Potencia', color: 'bg-blue-500' },
                 cu: { label: 'Análisis Tarifario', color: 'bg-rose-500' },
-                fasoriales: { label: 'Ingeniería Vectorial', color: 'bg-violet-500' },
-                growatt: { label: 'Generación Solar', color: 'bg-emerald-500' }
+                fasoriales: { label: 'Ingeniería Vectorial', color: 'bg-violet-500' }
               };
               const config = configs[currentView] || configs.dashboard;
               return (
@@ -694,15 +693,6 @@ export default function App() {
             >
               <GenerationCalculator />
             </motion.div>
-          ) : currentView === 'growatt' ? (
-            <motion.div
-              key="growatt"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-            >
-              <GrowattDashboard />
-            </motion.div>
           ) : (
             <motion.div
               key="empty-view"
@@ -764,8 +754,22 @@ export default function App() {
               </p>
             </div>
           )}
+
+          {currentView === 'calculos' && (
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-xs text-gray-400 font-medium">
+                  datos extraidos de la NASA
+                </p>
+                <NasaLogo className="h-10" />
+              </div>
+              <p className="text-[10px] text-gray-300 font-bold uppercase tracking-widest leading-relaxed">
+                Copyright 2026 <br /> todos los derechos reservados al autor
+              </p>
+            </div>
+          )}
           
-          {currentView !== 'dashboard' && (
+          {currentView !== 'dashboard' && currentView !== 'calculos' && (
             <p className="text-[10px] text-gray-300 font-bold uppercase tracking-widest leading-relaxed">
               Copyright 2026 <br /> todos los derechos reservados al autor
             </p>
