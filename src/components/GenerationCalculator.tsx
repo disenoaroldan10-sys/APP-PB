@@ -67,6 +67,18 @@ const Tooltip = ({ text }: { text: string }) => {
   );
 };
 
+interface ExtractedData {
+  cliente: string;
+  contrato: string;
+  capacidadInstalada: string;
+  importoConsumo: string;
+  excedentes: string;
+  saldo: string;
+  comercializacion: string;
+  generacion: string;
+  totalEnergia: string;
+}
+
 export default function GenerationCalculator() {
   const [analysisMode, setAnalysisMode] = useState<'monthly' | 'annual' | null>(null);
   const [inputMode, setInputMode] = useState<'manual' | 'city' | null>(null);
@@ -105,6 +117,7 @@ export default function GenerationCalculator() {
   } | null>(null);
 
   const [showInvoiceView, setShowInvoiceView] = useState(false);
+  const [savedInvoiceData, setSavedInvoiceData] = useState<ExtractedData | null>(null);
 
   // States to store the parameters of the last successful search
   const [lastSearchedParams, setLastSearchedParams] = useState<{
@@ -254,7 +267,15 @@ export default function GenerationCalculator() {
   };
 
   if (showInvoiceView) {
-    return <InvoiceAttachment onBack={() => setShowInvoiceView(false)} />;
+    return (
+      <InvoiceAttachment 
+        onBack={() => setShowInvoiceView(false)} 
+        onSave={(data) => {
+          setSavedInvoiceData(data);
+          setShowInvoiceView(false);
+        }}
+      />
+    );
   }
 
   return (
@@ -848,11 +869,12 @@ export default function GenerationCalculator() {
         )}
 
         {(geoResult || irradianceResult) && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-1 lg:grid-cols-12 gap-6"
-          >
+          <div className="space-y-6">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="grid grid-cols-1 lg:grid-cols-12 gap-6"
+            >
             {/* Location Card */}
             <div className="lg:col-span-5 space-y-4">
               <div className="bg-white rounded-[32px] p-6 shadow-sm border border-gray-100 h-full">
@@ -947,7 +969,75 @@ export default function GenerationCalculator() {
               </div>
             </div>
           </motion.div>
-        )}
+
+          {/* Saved Invoice Data Section */}
+          {savedInvoiceData && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-[32px] p-8 shadow-sm border border-gray-100"
+            >
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center">
+                    <Receipt className="w-6 h-6 text-emerald-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">Datos de Facturación Guardados</h3>
+                    <p className="text-sm text-gray-500">Información extraída de la última factura cargada</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setSavedInvoiceData(null)}
+                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                  title="Eliminar datos guardados"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {[
+                  { label: 'Cliente', value: savedInvoiceData.cliente },
+                  { label: 'Contrato', value: savedInvoiceData.contrato },
+                  { label: 'Capacidad Instalada', value: savedInvoiceData.capacidadInstalada },
+                  { label: 'Importó / Consumo', value: savedInvoiceData.importoConsumo },
+                  { label: 'Excedentes', value: savedInvoiceData.excedentes },
+                  { label: 'Saldo', value: savedInvoiceData.saldo },
+                  { label: 'Comercialización', value: savedInvoiceData.comercializacion },
+                  { label: 'Generación', value: savedInvoiceData.generacion },
+                  { label: 'Total Energía', value: savedInvoiceData.totalEnergia, highlight: true },
+                ].map((item, idx) => (
+                  <div 
+                    key={idx}
+                    className={cn(
+                      "p-5 rounded-2xl border transition-all",
+                      item.highlight 
+                        ? "bg-emerald-50 border-emerald-100 md:col-span-2 lg:col-span-1" 
+                        : "bg-gray-50 border-gray-100"
+                    )}
+                  >
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">{item.label}</p>
+                    <p className={cn(
+                      "font-bold truncate",
+                      item.highlight ? "text-xl text-emerald-700" : "text-sm text-gray-900"
+                    )}>
+                      {item.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-8 p-4 bg-blue-50/50 border border-blue-100 rounded-2xl flex items-start gap-3">
+                <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                <p className="text-xs text-blue-700 leading-relaxed">
+                  Estos datos pueden ser utilizados para realizar comparativos entre la generación estimada y el consumo real facturado.
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </div>
+      )}
       </AnimatePresence>
     </div>
   );

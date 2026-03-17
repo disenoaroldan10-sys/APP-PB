@@ -10,7 +10,8 @@ import {
   Info,
   Loader2,
   Copy,
-  Check
+  Check,
+  Save
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 // Gemini is now handled on the server side to keep the API key secure
@@ -22,6 +23,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLi
 
 interface InvoiceAttachmentProps {
   onBack: () => void;
+  onSave?: (data: ExtractedData) => void;
 }
 
 interface ExtractedData {
@@ -36,7 +38,7 @@ interface ExtractedData {
   totalEnergia: string;
 }
 
-export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
+export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -416,20 +418,31 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
                   ))}
                 </div>
 
-                <div className="mt-8 pt-6 border-t border-gray-100 flex justify-between items-center">
-                  <p className="text-[10px] text-gray-400 italic">
+                <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+                  <p className="text-[10px] text-gray-400 italic max-w-[200px]">
                     * Los valores fueron extraídos automáticamente mediante IA. Por favor verifique la información.
                   </p>
-                  <button 
-                    onClick={() => {
-                      setExtractedData(null);
-                      setFile(null);
-                      setUploadStatus('idle');
-                    }}
-                    className="text-xs font-bold text-red-500 hover:text-red-600 transition-colors"
-                  >
-                    Borrar y subir otra
-                  </button>
+                  <div className="flex items-center gap-4">
+                    <button 
+                      onClick={() => {
+                        setExtractedData(null);
+                        setFile(null);
+                        setUploadStatus('idle');
+                      }}
+                      className="text-xs font-bold text-red-500 hover:text-red-600 transition-colors"
+                    >
+                      Borrar y subir otra
+                    </button>
+                    {onSave && (
+                      <button 
+                        onClick={() => onSave(extractedData)}
+                        className="px-6 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-100 hover:bg-emerald-600 transition-all flex items-center gap-2"
+                      >
+                        <Save className="w-4 h-4" />
+                        Guardar Datos
+                      </button>
+                    )}
+                  </div>
                 </div>
               </section>
             </motion.div>
