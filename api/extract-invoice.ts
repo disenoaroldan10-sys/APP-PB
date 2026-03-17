@@ -29,7 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         {
           parts: [
             {
-              text: "Analiza esta factura de energía y extrae los siguientes campos en formato JSON. Si no encuentras un valor, pon 'No especificado'. Campos: Cliente, Capacidad instalada, Importo/consumo, Excedentes, Saldo, Comercialización, Generación, Numero de contrato, Total a pagar."
+              text: "Analiza esta factura de energía y extrae los siguientes campos en formato JSON. Sé extremadamente preciso con los valores numéricos y nombres. Si no encuentras un valor exacto, pon 'No especificado'.\n\nCampos específicos a buscar:\n- Cliente: (Nombre del titular o cliente)\n- Contrato: (Número de contrato, cuenta o NIU)\n- FNCER Capacidad instalada: (Capacidad en kW)\n- Importó/consumo: (Valor de consumo o energía importada)\n- Excedentes: (Energía exportada o excedentes)\n- Saldo: (Saldo anterior o pendiente)\n- Comercialización: (Componente de comercialización C)\n- Generación: (Componente de generación G)\n- Total Energía: (Valor total facturado o total energía)"
             },
             {
               inlineData: {
@@ -46,16 +46,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           type: Type.OBJECT,
           properties: {
             cliente: { type: Type.STRING },
+            contrato: { type: Type.STRING },
             capacidadInstalada: { type: Type.STRING },
             importoConsumo: { type: Type.STRING },
             excedentes: { type: Type.STRING },
             saldo: { type: Type.STRING },
             comercializacion: { type: Type.STRING },
             generacion: { type: Type.STRING },
-            numeroContrato: { type: Type.STRING },
-            totalAPagar: { type: Type.STRING }
+            totalEnergia: { type: Type.STRING }
           },
-          required: ["cliente", "capacidadInstalada", "importoConsumo", "excedentes", "saldo", "comercializacion", "generacion", "numeroContrato", "totalAPagar"]
+          required: ["cliente", "contrato", "capacidadInstalada", "importoConsumo", "excedentes", "saldo", "comercializacion", "generacion", "totalEnergia"]
         }
       }
     });

@@ -26,14 +26,14 @@ interface InvoiceAttachmentProps {
 
 interface ExtractedData {
   cliente: string;
+  contrato: string;
   capacidadInstalada: string;
   importoConsumo: string;
   excedentes: string;
   saldo: string;
   comercializacion: string;
   generacion: string;
-  numeroContrato: string;
-  totalAPagar: string;
+  totalEnergia: string;
 }
 
 export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
@@ -354,14 +354,14 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[
                     { label: 'Cliente', value: extractedData.cliente, key: 'cliente' },
-                    { label: 'Número de Contrato', value: extractedData.numeroContrato, key: 'numeroContrato' },
-                    { label: 'Capacidad Instalada', value: extractedData.capacidadInstalada, key: 'capacidadInstalada' },
-                    { label: 'Importo / Consumo', value: extractedData.importoConsumo, key: 'importoConsumo' },
+                    { label: 'Contrato', value: extractedData.contrato, key: 'contrato' },
+                    { label: 'FNCER Capacidad Instalada', value: extractedData.capacidadInstalada, key: 'capacidadInstalada' },
+                    { label: 'Importó / Consumo', value: extractedData.importoConsumo, key: 'importoConsumo' },
                     { label: 'Excedentes', value: extractedData.excedentes, key: 'excedentes' },
                     { label: 'Saldo', value: extractedData.saldo, key: 'saldo' },
                     { label: 'Comercialización', value: extractedData.comercializacion, key: 'comercializacion' },
                     { label: 'Generación', value: extractedData.generacion, key: 'generacion' },
-                    { label: 'Total a Pagar', value: extractedData.totalAPagar, key: 'totalAPagar', highlight: true },
+                    { label: 'Total Energía', value: extractedData.totalEnergia, key: 'totalEnergia', highlight: true },
                   ].map((item) => (
                     <div 
                       key={item.key}
