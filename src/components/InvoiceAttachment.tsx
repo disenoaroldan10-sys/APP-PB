@@ -291,10 +291,7 @@ export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentP
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Upload Section */}
         <div className={extractedData ? "lg:col-span-5" : "lg:col-span-12"}>
-          <section className={cn(
-            "bg-white rounded-[32px] p-8 shadow-sm border border-gray-100",
-            extractedData && "h-full"
-          )}>
+          <section className="bg-white rounded-[32px] p-8 shadow-sm border border-gray-100">
             {/* Invoice Type Selection */}
             <div className="mb-8">
               <label className="text-xs font-black text-gray-900 uppercase tracking-[0.2em] px-1 block mb-4">Tipo de Factura</label>
@@ -328,7 +325,7 @@ export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentP
             <div 
               className={cn(
                 "border-2 border-dashed rounded-[24px] p-8 text-center transition-all flex flex-col justify-center",
-                extractedData ? "h-full" : "min-h-[300px]",
+                extractedData ? "min-h-[200px]" : "min-h-[300px]",
                 file ? "border-emerald-200 bg-emerald-50/30" : "border-gray-200 hover:border-emerald-300 hover:bg-gray-50/50"
               )}
             >

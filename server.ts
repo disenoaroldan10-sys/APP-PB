@@ -40,7 +40,16 @@ async function startServer() {
       let requiredFields: string[] = [];
 
       if (invoiceType === 'CONVENCIONAL') {
-        prompt = "Analiza esta factura de energía CONVENCIONAL y extrae los siguientes campos en formato JSON. Si no encuentras un valor, pon 'No especificado'. Campos: Numero de contrato, Cliente, Energia (Consumo actual), Energia PROM (Promedio de consumo), Comercialización, Generación, Total a pagar.";
+        prompt = `Analiza esta factura de energía CONVENCIONAL y extrae los siguientes campos en formato JSON. Si no encuentras un valor, pon 'No especificado'. 
+
+Campos específicos:
+- Numero de contrato: El número de contrato o cuenta.
+- Cliente: Nombre del titular.
+- Energia: El consumo de energía activa en kWh del periodo actual. Busca el valor numérico bajo la columna 'consumo' en la sección de 'Energía' (por ejemplo, '23 kWh').
+- Energia PROM: El promedio de consumo de los últimos 6 meses en kWh. Busca en el gráfico de 'Histórico de consumos' la barra final etiquetada como 'PROM' o el texto 'PROMEDIO DE LOS ÚLTIMOS 6 MESES = PROM'. Extrae el valor numérico (por ejemplo, '33').
+- Comercialización: Valor unitario de comercialización.
+- Generación: Valor unitario de generación.
+- Total Energia: El valor total a pagar por el concepto de energía (por ejemplo, '$ 16.797,16').`;
         properties = {
           cliente: { type: Type.STRING },
           contrato: { type: Type.STRING },
