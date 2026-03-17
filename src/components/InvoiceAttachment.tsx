@@ -17,8 +17,14 @@ import { motion, AnimatePresence } from 'motion/react';
 
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Set up PDF.js worker using unpkg for better version matching
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+// Set up PDF.js worker using a more reliable CDN approach
+const PDFJS_VERSION = pdfjsLib.version;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.mjs`;
+
+// Fallback worker if cdnjs fails
+const handlePdfWorkerError = () => {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
+};
 
 interface InvoiceAttachmentProps {
   onBack: () => void;
@@ -134,6 +140,7 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
     if (!file) return;
     setIsUploading(true);
     setUploadStatus('idle');
+    setErrorMessage(null);
 
     try {
       let base64 = '';
@@ -151,75 +158,73 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
         try {
           base64 = await convertPdfToImage(file);
           mimeType = 'image/jpeg';
+          console.log('PDF converted successfully');
         } catch (pdfError: any) {
           console.error('PDF conversion failed:', pdfError);
-          throw new Error('No se pudo procesar el PDF. Intenta subir una imagen de la factura.');
+          // If PDF conversion fails and file is small, we can try sending it raw
+          if (file.size < 3.5 * 1024 * 1024) {
+            console.log('PDF conversion failed but file is small, sending raw...');
+            base64 = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.readAsDataURL(file);
+              reader.onload = () => resolve((reader.result as string).split(',')[1]);
+              reader.onerror = reject;
+            });
+          } else {
+            throw new Error(`No se pudo procesar el PDF de ${(file.size / (1024 * 1024)).toFixed(1)}MB. Intenta subir una imagen (foto) de la factura o un PDF más pequeño.`);
+          }
         }
       } else {
         console.log('Using raw file data (fallback)...');
-        // For other files, just read as base64 (fallback)
+        if (file.size > 3.5 * 1024 * 1024) {
+          throw new Error('Este tipo de archivo es demasiado grande. Por favor sube un PDF o una imagen.');
+        }
         base64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.readAsDataURL(file);
-          reader.onload = () => {
-            const res = reader.result as string;
-            resolve(res.split(',')[1]);
-          };
-          reader.onerror = error => reject(error);
+          reader.onload = () => resolve((reader.result as string).split(',')[1]);
+          reader.onerror = reject;
         });
       }
 
-      const payload = JSON.stringify({
-        base64,
-        mimeType
-      });
+      if (!base64) {
+        throw new Error('No se pudo procesar el archivo. Inténtalo de nuevo.');
+      }
 
-      // Vercel has a 4.5MB limit for the entire request body
-      // We check the payload size here to catch it before sending
+      const payload = JSON.stringify({ base64, mimeType });
       const payloadSizeInMB = new TextEncoder().encode(payload).length / (1024 * 1024);
-      console.log(`Payload size: ${payloadSizeInMB.toFixed(2)} MB`);
+      console.log(`Final payload size: ${payloadSizeInMB.toFixed(2)} MB`);
 
-      if (payloadSizeInMB > 4.4) {
-        throw new Error('El archivo procesado sigue siendo demasiado grande para el servidor. Intenta con un archivo más pequeño o de menor resolución.');
+      if (payloadSizeInMB > 4.3) {
+        throw new Error('El archivo procesado sigue siendo demasiado grande para Vercel (límite 4.5MB). Por favor, intenta con una captura de pantalla (imagen) de la factura.');
       }
 
       const response = await fetch('/api/extract-invoice', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: payload,
       });
 
       if (!response.ok) {
-        let errorMsg = 'Error en la extracción del servidor';
         const contentType = response.headers.get('content-type');
-        
         if (contentType && contentType.includes('application/json')) {
-          try {
-            const errorData = await response.json();
-            errorMsg = errorData.details || errorData.error || errorMsg;
-          } catch (e) {
-            console.error('Failed to parse error JSON:', e);
-          }
+          const errorData = await response.json();
+          throw new Error(errorData.details || errorData.error || 'Error en el servidor');
         } else {
-          // If not JSON, it might be a 413 error from Vercel (HTML)
           const text = await response.text();
-          if (response.status === 413 || text.includes('Request Entity Too Large')) {
-            errorMsg = 'El archivo es demasiado grande para el servidor de Vercel (límite 4.5MB). Intenta con una imagen o un PDF más pequeño.';
-          } else {
-            console.error('Server returned non-JSON error:', text);
+          if (response.status === 413 || text.includes('Too Large')) {
+            throw new Error('Vercel rechazó el archivo por ser demasiado grande. Por favor, toma una foto a la factura y sube la imagen.');
           }
+          throw new Error(`Error del servidor (${response.status}). Por favor, refresca la página e intenta de nuevo.`);
         }
-        throw new Error(errorMsg);
       }
 
       const data = await response.json();
       setExtractedData(data);
       setUploadStatus('success');
     } catch (error: any) {
-      console.error('Error extracting data:', error);
-      setErrorMessage(error.message || 'Error al analizar la factura. Inténtalo de nuevo.');
+      console.error('Upload error:', error);
+      setErrorMessage(error.message || 'Ocurrió un error inesperado.');
       setUploadStatus('error');
     } finally {
       setIsUploading(false);
@@ -311,10 +316,18 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
                 <motion.div 
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="mt-8 p-4 bg-red-50 text-red-700 rounded-2xl flex items-center gap-3 justify-center"
+                  className="mt-8 p-6 bg-red-50 text-red-700 rounded-2xl flex flex-col items-center gap-4 justify-center border border-red-100"
                 >
-                  <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                  <span className="font-bold text-sm">{errorMessage || 'Error al analizar la factura. Inténtalo de nuevo.'}</span>
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="w-6 h-6 flex-shrink-0" />
+                    <span className="font-bold text-sm">{errorMessage || 'Error al analizar la factura.'}</span>
+                  </div>
+                  <button 
+                    onClick={() => window.location.reload()}
+                    className="text-xs bg-white px-4 py-2 rounded-xl shadow-sm border border-red-200 hover:bg-red-100 transition-colors font-bold"
+                  >
+                    Refrescar página y reintentar
+                  </button>
                 </motion.div>
               )}
 
