@@ -65,26 +65,53 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
   const convertPdfToImage = async (file: File): Promise<string> => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const numPages = pdf.numPages;
     
-    // We'll just take the first page as it usually contains the main data
-    const page = await pdf.getPage(1);
-    // Reduced scale to 1.5 to keep size down while maintaining OCR quality
-    const viewport = page.getViewport({ scale: 1.5 }); 
+    console.log(`Processing PDF with ${numPages} pages...`);
     
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.height = viewport.height;
-    canvas.width = viewport.width;
+    const canvases: HTMLCanvasElement[] = [];
+    let totalHeight = 0;
+    let maxWidth = 0;
+
+    // Render each page to a canvas
+    for (let i = 1; i <= numPages; i++) {
+      const page = await pdf.getPage(i);
+      // Use scale 1.2 to balance quality and size for multi-page PDFs
+      const viewport = page.getViewport({ scale: 1.2 }); 
+      
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      
+      if (!context) throw new Error('Could not create canvas context');
+      
+      await page.render({
+        canvasContext: context,
+        viewport: viewport
+      } as any).promise;
+      
+      canvases.push(canvas);
+      totalHeight += canvas.height;
+      maxWidth = Math.max(maxWidth, canvas.width);
+    }
+
+    // Combine all canvases into one vertical image
+    const finalCanvas = document.createElement('canvas');
+    finalCanvas.width = maxWidth;
+    finalCanvas.height = totalHeight;
+    const finalCtx = finalCanvas.getContext('2d');
     
-    if (!context) throw new Error('Could not create canvas context');
+    if (!finalCtx) throw new Error('Could not create final canvas context');
+
+    let currentY = 0;
+    for (const canvas of canvases) {
+      finalCtx.drawImage(canvas, 0, currentY);
+      currentY += canvas.height;
+    }
     
-    await page.render({
-      canvasContext: context,
-      viewport: viewport
-    } as any).promise;
-    
-    // Compress as JPEG with lower quality (0.6) to ensure it stays under Vercel's limit
-    return canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+    // Compress as JPEG with quality 0.5 to keep multi-page results under Vercel's 4.5MB limit
+    return finalCanvas.toDataURL('image/jpeg', 0.5).split(',')[1];
   };
 
   const compressImage = (file: File): Promise<string> => {
