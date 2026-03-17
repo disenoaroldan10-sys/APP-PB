@@ -18,6 +18,10 @@ async function startServer() {
   // Gemini API endpoint for invoice extraction
   app.post('/api/extract-invoice', async (req, res) => {
     const { base64, mimeType } = req.body;
+    
+    // Log request size for debugging
+    const sizeInMB = Buffer.from(base64 || '', 'base64').length / (1024 * 1024);
+    console.log(`Extract invoice request: ${mimeType}, size: ${sizeInMB.toFixed(2)} MB`);
 
     if (!base64 || !mimeType) {
       return res.status(400).json({ error: 'Missing base64 data or mimeType' });

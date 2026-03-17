@@ -35,15 +35,70 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      
+      // Basic validation for PDF size (Vercel has a 4.5MB limit for serverless functions)
+      // Base64 encoding adds ~33% overhead. So 3MB binary -> 4MB base64.
+      if (selectedFile.type === 'application/pdf' && selectedFile.size > 3 * 1024 * 1024) {
+        setErrorMessage('El PDF es demasiado grande (máx 3MB). Por favor sube una versión más ligera o una imagen.');
+        setUploadStatus('error');
+        return;
+      }
+
+      setFile(selectedFile);
       setUploadStatus('idle');
+      setErrorMessage(null);
       setExtractedData(null);
     }
+  };
+
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Max dimensions for the image to keep size low but quality enough for OCR
+          const MAX_WIDTH = 1600;
+          const MAX_HEIGHT = 1600;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          // Compress as JPEG with 0.7 quality
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(dataUrl.split(',')[1]);
+        };
+        img.onerror = (err) => reject(err);
+      };
+      reader.onerror = (err) => reject(err);
+    });
   };
 
   const handleUpload = async () => {
@@ -52,16 +107,23 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
     setUploadStatus('idle');
 
     try {
-      // Convert file to base64 for Gemini
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => {
-          const res = reader.result as string;
-          resolve(res.split(',')[1]);
-        };
-        reader.onerror = error => reject(error);
-      });
+      let base64 = '';
+      
+      if (file.type.startsWith('image/')) {
+        // Compress images
+        base64 = await compressImage(file);
+      } else {
+        // For PDFs, just read as base64
+        base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => {
+            const res = reader.result as string;
+            resolve(res.split(',')[1]);
+          };
+          reader.onerror = error => reject(error);
+        });
+      }
 
       const response = await fetch('/api/extract-invoice', {
         method: 'POST',
@@ -75,15 +137,25 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.details || 'Error in server extraction');
+        let errorMsg = 'Error en la extracción del servidor';
+        try {
+          const errorData = await response.json();
+          errorMsg = errorData.details || errorMsg;
+        } catch (e) {
+          // If not JSON, it might be a 413 error from Vercel (HTML)
+          if (response.status === 413) {
+            errorMsg = 'El archivo es demasiado grande para el servidor. Intenta con una imagen o un PDF más pequeño.';
+          }
+        }
+        throw new Error(errorMsg);
       }
 
       const data = await response.json();
       setExtractedData(data);
       setUploadStatus('success');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error extracting data:', error);
+      setErrorMessage(error.message || 'Error al analizar la factura. Inténtalo de nuevo.');
       setUploadStatus('error');
     } finally {
       setIsUploading(false);
@@ -139,6 +211,9 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
                   <p className="text-sm text-gray-500">
                     Arrastra y suelta o haz clic para buscar (PDF o Imagen)
                   </p>
+                  <p className="text-[10px] text-amber-600 font-medium mt-1">
+                    Nota: Máximo 3MB para PDFs. Las imágenes se comprimen automáticamente.
+                  </p>
                 </div>
               </label>
 
@@ -174,8 +249,8 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
                   animate={{ opacity: 1, scale: 1 }}
                   className="mt-8 p-4 bg-red-50 text-red-700 rounded-2xl flex items-center gap-3 justify-center"
                 >
-                  <AlertCircle className="w-5 h-5" />
-                  <span className="font-bold">Error al analizar la factura. Inténtalo de nuevo.</span>
+                  <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                  <span className="font-bold text-sm">{errorMessage || 'Error al analizar la factura. Inténtalo de nuevo.'}</span>
                 </motion.div>
               )}
 
