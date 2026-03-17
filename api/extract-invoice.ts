@@ -18,8 +18,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error('GEMINI_API_KEY or VITE_GEMINI_API_KEY is not set on the server');
+    
+    if (!apiKey || apiKey === 'your_api_key_here' || apiKey.startsWith('TODO')) {
+      return res.status(500).json({ 
+        error: 'Configuración incompleta', 
+        details: 'La clave API de Gemini (GEMINI_API_KEY) no está configurada o es inválida. Si estás en Vercel, asegúrate de añadirla en las variables de entorno del proyecto.' 
+      });
     }
 
     const ai = new GoogleGenAI({ apiKey });
@@ -29,7 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         {
           parts: [
             {
-              text: "Analiza esta factura de energía y extrae los siguientes campos en formato JSON. Sé extremadamente preciso con los valores numéricos y nombres. Si no encuentras un valor exacto, pon 'No especificado'.\n\nCampos específicos a buscar:\n- Cliente: (Nombre del titular o cliente)\n- Contrato: (Número de contrato, cuenta o NIU)\n- FNCER Capacidad instalada: (Capacidad en kW)\n- Importó/consumo: (Valor de consumo o energía importada)\n- Excedentes: (Energía exportada o excedentes)\n- Saldo: (Saldo anterior o pendiente)\n- Comercialización: (Componente de comercialización C)\n- Generación: (Componente de generación G)\n- Total Energía: (Valor total facturado o total energía)"
+              text: "Analiza esta factura de energía (ejemplo EPM) y extrae los siguientes campos en formato JSON. Sé extremadamente preciso. Si no encuentras un valor exacto, pon 'No especificado'.\n\nInstrucciones críticas:\n- Contrato: Busca el número grande que aparece inmediatamente después de la palabra 'Contrato' (ej: 'Contrato 13263357'). NO confundir con 'Producto' u otros números de documento.\n- Cliente: Nombre completo de la empresa o persona (ej: 'Precolombina De Turismo Especializado Sa').\n- FNCER Capacidad instalada: Valor numérico en kW.\n- Importó/consumo: Valor de energía activa o consumo importado.\n- Excedentes: Valor de energía exportada o excedentes.\n- Saldo: Saldo a favor o pendiente de meses anteriores.\n- Comercialización: Valor del componente C (Comercialización).\n- Generación: Valor del componente G (Generación).\n- Total Energía: El valor total de la factura o el total de energía facturada."
             },
             {
               inlineData: {
