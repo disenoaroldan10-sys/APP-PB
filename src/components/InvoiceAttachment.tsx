@@ -13,7 +13,7 @@ import {
   Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { GoogleGenAI, Type } from "@google/genai";
+// Gemini is now handled on the server side to keep the API key secure
 
 interface InvoiceAttachmentProps {
   onBack: () => void;
@@ -63,46 +63,23 @@ export default function InvoiceAttachment({ onBack }: InvoiceAttachmentProps) {
         reader.onerror = error => reject(error);
       });
 
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [
-          {
-            parts: [
-              {
-                text: "Analiza esta factura de energía y extrae los siguientes campos en formato JSON. Si no encuentras un valor, pon 'No especificado'. Campos: Cliente, Capacidad instalada, Importo/consumo, Excedentes, Saldo, Comercialización, Generación, Numero de contrato, Total a pagar."
-              },
-              {
-                inlineData: {
-                  mimeType: file.type,
-                  data: base64
-                }
-              }
-            ]
-          }
-        ],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              cliente: { type: Type.STRING },
-              capacidadInstalada: { type: Type.STRING },
-              importoConsumo: { type: Type.STRING },
-              excedentes: { type: Type.STRING },
-              saldo: { type: Type.STRING },
-              comercializacion: { type: Type.STRING },
-              generacion: { type: Type.STRING },
-              numeroContrato: { type: Type.STRING },
-              totalAPagar: { type: Type.STRING }
-            },
-            required: ["cliente", "capacidadInstalada", "importoConsumo", "excedentes", "saldo", "comercializacion", "generacion", "numeroContrato", "totalAPagar"]
-          }
-        }
+      const response = await fetch('/api/extract-invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          base64,
+          mimeType: file.type
+        }),
       });
 
-      const data = JSON.parse(response.text || '{}');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || 'Error in server extraction');
+      }
+
+      const data = await response.json();
       setExtractedData(data);
       setUploadStatus('success');
     } catch (error) {

@@ -3,6 +3,7 @@ import { createServer as createViteServer } from 'vite';
 import axios from 'axios';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { GoogleGenAI, Type } from "@google/genai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,7 +12,68 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+  // Gemini API endpoint for invoice extraction
+  app.post('/api/extract-invoice', async (req, res) => {
+    const { base64, mimeType } = req.body;
+
+    if (!base64 || !mimeType) {
+      return res.status(400).json({ error: 'Missing base64 data or mimeType' });
+    }
+
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error('GEMINI_API_KEY is not set on the server');
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [
+          {
+            parts: [
+              {
+                text: "Analiza esta factura de energía y extrae los siguientes campos en formato JSON. Si no encuentras un valor, pon 'No especificado'. Campos: Cliente, Capacidad instalada, Importo/consumo, Excedentes, Saldo, Comercialización, Generación, Numero de contrato, Total a pagar."
+              },
+              {
+                inlineData: {
+                  mimeType,
+                  data: base64
+                }
+              }
+            ]
+          }
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              cliente: { type: Type.STRING },
+              capacidadInstalada: { type: Type.STRING },
+              importoConsumo: { type: Type.STRING },
+              excedentes: { type: Type.STRING },
+              saldo: { type: Type.STRING },
+              comercializacion: { type: Type.STRING },
+              generacion: { type: Type.STRING },
+              numeroContrato: { type: Type.STRING },
+              totalAPagar: { type: Type.STRING }
+            },
+            required: ["cliente", "capacidadInstalada", "importoConsumo", "excedentes", "saldo", "comercializacion", "generacion", "numeroContrato", "totalAPagar"]
+          }
+        }
+      });
+
+      const data = JSON.parse(response.text || '{}');
+      res.json(data);
+    } catch (error: any) {
+      console.error('Error in Gemini extraction:', error.message);
+      res.status(500).json({ error: 'Error extracting data from invoice', details: error.message });
+    }
+  });
 
   // Proxy endpoint for XM API to avoid CORS issues
   app.post('/api/xm-proxy', async (req, res) => {
@@ -61,39 +123,6 @@ async function startServer() {
       res.status(error.response?.status || 500).json({
         error: 'Error fetching lists from XM API',
         details: error.message
-      });
-    }
-  });
-
-  // Growatt API Proxy
-  app.all('/api/growatt/*', async (req, res) => {
-    const endpoint = req.params[0];
-    const growattUrl = process.env.GROWATT_API_URL || 'http://test.growatt.com/v1/';
-    const token = process.env.GROWATT_TOKEN || '6eb6f069523055a339d71e5b1f6c88cc';
-
-    try {
-      const config: any = {
-        method: req.method,
-        url: `${growattUrl}${endpoint}`,
-        params: { ...req.query, token },
-        headers: {
-          'Accept': 'application/json',
-        },
-        timeout: 30000
-      };
-
-      if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
-        config.data = { ...req.body, token };
-      }
-
-      const response = await axios(config);
-      res.json(response.data);
-    } catch (error: any) {
-      console.error(`Growatt Proxy Error (${endpoint}):`, error.message);
-      res.status(error.response?.status || 500).json({
-        error: 'Error fetching from Growatt API',
-        details: error.message,
-        responseData: error.response?.data
       });
     }
   });
