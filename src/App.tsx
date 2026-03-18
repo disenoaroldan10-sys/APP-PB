@@ -36,7 +36,7 @@ import { twMerge } from 'tailwind-merge';
 import { format } from 'date-fns';
 import { fetchPrecioBolsa, getMonthRange, XmPriceData, listMetrics } from './services/xmService';
 import PhasorCalculator from './components/PhasorCalculator';
-import GenerationCalculator from './components/GenerationCalculator';
+import GenerationCalculator, { ExtractedData } from './components/GenerationCalculator';
 
 // Utility for tailwind classes
 function cn(...inputs: ClassValue[]) {
@@ -101,6 +101,7 @@ export default function App() {
   const [notification, setNotification] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [savedInvoiceData, setSavedInvoiceData] = useState<ExtractedData | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -585,8 +586,8 @@ export default function App() {
               </div>
 
               {/* Right Content: Visualization */}
-              <div className="lg:col-span-8 space-y-6">
-                <section className="bg-white rounded-[32px] p-8 shadow-sm border border-gray-100 h-full min-h-[500px] lg:min-h-[700px] xl:min-h-[800px] flex flex-col">
+              <div className="lg:col-span-8 flex flex-col gap-6">
+                <section className="bg-white rounded-[32px] p-8 shadow-sm border border-gray-100 flex-1 min-h-[500px] lg:min-h-[700px] xl:min-h-[800px] flex flex-col">
                   <div className="flex items-center justify-between mb-8">
                     <div>
                       <h2 className="text-2xl font-bold tracking-tight">Precio de Bolsa Horario</h2>
@@ -716,7 +717,10 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
             >
-              <GenerationCalculator />
+              <GenerationCalculator 
+                savedInvoiceData={savedInvoiceData} 
+                setSavedInvoiceData={setSavedInvoiceData} 
+              />
             </motion.div>
           ) : (
             <motion.div

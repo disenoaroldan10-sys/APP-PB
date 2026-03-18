@@ -67,7 +67,7 @@ const Tooltip = ({ text }: { text: string }) => {
   );
 };
 
-interface ExtractedData {
+export interface ExtractedData {
   cliente: string;
   contrato: string;
   capacidadInstalada?: string;
@@ -81,7 +81,12 @@ interface ExtractedData {
   energiaProm?: string;
 }
 
-export default function GenerationCalculator() {
+interface GenerationCalculatorProps {
+  savedInvoiceData: ExtractedData | null;
+  setSavedInvoiceData: (data: ExtractedData | null) => void;
+}
+
+export default function GenerationCalculator({ savedInvoiceData, setSavedInvoiceData }: GenerationCalculatorProps) {
   const [analysisMode, setAnalysisMode] = useState<'monthly' | 'annual' | null>(null);
   const [inputMode, setInputMode] = useState<'manual' | 'city' | null>(null);
   const [lat, setLat] = useState<string>('');
@@ -119,7 +124,9 @@ export default function GenerationCalculator() {
   } | null>(null);
 
   const [showInvoiceView, setShowInvoiceView] = useState(false);
-  const [savedInvoiceData, setSavedInvoiceData] = useState<ExtractedData | null>(null);
+  const [projectType, setProjectType] = useState<'new' | 'existing' | null>(null);
+  const [attachedInvoice, setAttachedInvoice] = useState<boolean>(false);
+  const [showInvoicePromptModal, setShowInvoicePromptModal] = useState(false);
 
   // States to store the parameters of the last successful search
   const [lastSearchedParams, setLastSearchedParams] = useState<{
@@ -129,6 +136,7 @@ export default function GenerationCalculator() {
     endYear: number;
     kwp: number;
     pr: number;
+    isAutoKwp?: boolean;
   } | null>(null);
 
   const months = [
@@ -190,7 +198,8 @@ export default function GenerationCalculator() {
       return;
     }
 
-    if (!kwp || !powerRatio) {
+    const isAutoKwp = projectType === 'new' && attachedInvoice;
+    if ((!kwp && !isAutoKwp) || !powerRatio) {
       setError('Por favor ingrese kWp y Power Ratio.');
       return;
     }
@@ -225,6 +234,13 @@ export default function GenerationCalculator() {
       average: pendingResults.irradiance.average * factor
     };
 
+    let finalKwp = parseFloat(kwp);
+    if (isNaN(finalKwp) && projectType === 'new' && attachedInvoice && savedInvoiceData?.energiaProm) {
+      const consumoProm = parseFloat(savedInvoiceData.energiaProm.replace(/[^0-9.]/g, ''));
+      const pr = parseFloat(powerRatio);
+      finalKwp = (consumoProm / 30) / (pr * adjustedIrradiance.average);
+    }
+
     setGeoResult(pendingResults.geo);
     setIrradianceResult(adjustedIrradiance);
     setLastSearchedParams({
@@ -232,8 +248,9 @@ export default function GenerationCalculator() {
       month: selectedMonth,
       startYear: startYear!,
       endYear: endYear!,
-      kwp: parseFloat(kwp),
+      kwp: finalKwp,
       pr: parseFloat(powerRatio),
+      isAutoKwp: isNaN(parseFloat(kwp)),
     });
     setShowAdjustmentModal(false);
     setPendingResults(null);
@@ -253,6 +270,8 @@ export default function GenerationCalculator() {
     setEndYear(null);
     setStartYearPivot(new Date().getFullYear());
     setEndYearPivot(new Date().getFullYear());
+    setProjectType(null);
+    setAttachedInvoice(false);
     setError(null);
   };
 
@@ -282,6 +301,74 @@ export default function GenerationCalculator() {
 
   return (
     <div className="space-y-6">
+      {/* Saved Invoice Data Section */}
+      <AnimatePresence mode="wait">
+        {savedInvoiceData && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="bg-white rounded-[32px] p-8 shadow-sm border border-gray-100"
+          >
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center">
+                  <Receipt className="w-6 h-6 text-emerald-500" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Datos de Facturación Guardados</h3>
+                  <p className="text-sm text-gray-500">Información extraída de la última factura cargada</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSavedInvoiceData(null)}
+                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                title="Eliminar datos guardados"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {[
+                { label: 'Cliente', value: savedInvoiceData.cliente },
+                { label: 'Contrato', value: savedInvoiceData.contrato },
+                ...(savedInvoiceData.capacidadInstalada ? [
+                  { label: 'Capacidad Instalada', value: savedInvoiceData.capacidadInstalada },
+                  { label: 'Importó / Consumo', value: savedInvoiceData.importoConsumo },
+                  { label: 'Excedentes', value: savedInvoiceData.excedentes },
+                  { label: 'Saldo', value: savedInvoiceData.saldo },
+                ] : [
+                  { label: 'Energía (Consumo)', value: savedInvoiceData.energia },
+                  { label: 'Energía PROM', value: savedInvoiceData.energiaProm },
+                ]),
+                { label: 'Comercialización', value: savedInvoiceData.comercializacion },
+                { label: 'Generación', value: savedInvoiceData.generacion },
+                { label: 'Total Energía', value: savedInvoiceData.totalEnergia, highlight: true },
+              ].map((item, idx) => (
+                <div 
+                  key={idx}
+                  className={cn(
+                    "p-5 rounded-2xl border transition-all",
+                    item.highlight 
+                      ? "bg-emerald-50 border-emerald-100 md:col-span-2 lg:col-span-1" 
+                      : "bg-gray-50 border-gray-100"
+                  )}
+                >
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">{item.label}</p>
+                  <p className={cn(
+                    "font-bold truncate",
+                    item.highlight ? "text-emerald-700 text-lg" : "text-gray-900"
+                  )}>
+                    {item.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Input Section */}
       <section className="bg-white rounded-[32px] p-8 shadow-sm border border-gray-100">
         {/* Step 1: Analysis Mode */}
@@ -291,47 +378,96 @@ export default function GenerationCalculator() {
               <Sun className="w-6 h-6 text-amber-500" />
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
-              <h2 className="text-2xl font-black tracking-tight text-gray-900">Pronóstico de Generación Solar</h2>
-              <button 
-                onClick={() => setShowInvoiceView(true)}
-                className="px-6 py-3 bg-emerald-50 text-emerald-600 rounded-2xl font-bold hover:bg-emerald-100 transition-all flex items-center gap-2 group/invoice w-fit"
-              >
-                <Receipt className="w-4 h-4 transition-transform group-hover/invoice:scale-110" />
-                Adjunta factura de energia
-              </button>
+              <div className="flex items-center gap-2">
+                {projectType && (
+                  <button 
+                    onClick={() => {
+                      setProjectType(null);
+                      setAnalysisMode(null);
+                      setInputMode(null);
+                    }}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-all"
+                  >
+                    <ChevronLeft className="w-6 h-6 text-gray-400" />
+                  </button>
+                )}
+                <h2 className="text-2xl font-black tracking-tight text-gray-900">Pronóstico de Generación Solar</h2>
+              </div>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <label className="text-xs font-black text-gray-900 uppercase tracking-[0.2em] px-1">Seleccione Tipo de Análisis</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <button 
-                onClick={() => setAnalysisMode('monthly')}
-                className={cn(
-                  "flex items-center justify-center gap-3 p-4 rounded-2xl font-bold transition-all border-2",
-                  analysisMode === 'monthly' 
-                    ? "bg-amber-50 border-amber-500 text-amber-600 shadow-md shadow-amber-100" 
-                    : "bg-gray-50 border-gray-100 text-gray-400 hover:border-amber-200 hover:text-amber-500"
-                )}
-              >
-                <Calendar className="w-5 h-5" />
-                Mensual Promedio
-              </button>
-              <button 
-                onClick={() => setAnalysisMode('annual')}
-                className={cn(
-                  "flex items-center justify-center gap-3 p-4 rounded-2xl font-bold transition-all border-2",
-                  analysisMode === 'annual' 
-                    ? "bg-amber-50 border-amber-500 text-amber-600 shadow-md shadow-amber-100" 
-                    : "bg-gray-50 border-gray-100 text-gray-400 hover:border-amber-200 hover:text-amber-500"
-                )}
-              >
-                <TrendingUp className="w-5 h-5" />
-                Anual Promedio
-              </button>
+          {!projectType && (
+            <div className="space-y-4">
+              <label className="text-xs font-black text-gray-900 uppercase tracking-[0.2em] px-1">Tipo de Proyecto</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button 
+                  onClick={() => {
+                    setProjectType('new');
+                    setShowInvoicePromptModal(true);
+                  }}
+                  className={cn(
+                    "flex items-center justify-center gap-3 p-4 rounded-2xl font-bold transition-all border-2",
+                    projectType === 'new' 
+                      ? "bg-amber-50 border-amber-500 text-amber-600 shadow-md shadow-amber-100" 
+                      : "bg-gray-50 border-gray-100 text-gray-400 hover:border-amber-200 hover:text-amber-500"
+                  )}
+                >
+                  <Sun className="w-5 h-5" />
+                  Instalación nueva
+                </button>
+                <button 
+                  onClick={() => {
+                    setProjectType('existing');
+                    setShowInvoicePromptModal(true);
+                  }}
+                  className={cn(
+                    "flex items-center justify-center gap-3 p-4 rounded-2xl font-bold transition-all border-2",
+                    projectType === 'existing' 
+                      ? "bg-amber-50 border-amber-500 text-amber-600 shadow-md shadow-amber-100" 
+                      : "bg-gray-50 border-gray-100 text-gray-400 hover:border-amber-200 hover:text-amber-500"
+                  )}
+                >
+                  <TrendingUp className="w-5 h-5" />
+                  Validación de rendimiento existente
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
+
+        {projectType && (
+          <>
+            <div className="mb-10">
+              <div className="space-y-4">
+                <label className="text-xs font-black text-gray-900 uppercase tracking-[0.2em] px-1">Seleccione Tipo de Análisis</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button 
+                    onClick={() => setAnalysisMode('monthly')}
+                    className={cn(
+                      "flex items-center justify-center gap-3 p-4 rounded-2xl font-bold transition-all border-2",
+                      analysisMode === 'monthly' 
+                        ? "bg-amber-50 border-amber-500 text-amber-600 shadow-md shadow-amber-100" 
+                        : "bg-gray-50 border-gray-100 text-gray-400 hover:border-amber-200 hover:text-amber-500"
+                    )}
+                  >
+                    <Calendar className="w-5 h-5" />
+                    Mensual Promedio
+                  </button>
+                  <button 
+                    onClick={() => setAnalysisMode('annual')}
+                    className={cn(
+                      "flex items-center justify-center gap-3 p-4 rounded-2xl font-bold transition-all border-2",
+                      analysisMode === 'annual' 
+                        ? "bg-amber-50 border-amber-500 text-amber-600 shadow-md shadow-amber-100" 
+                        : "bg-gray-50 border-gray-100 text-gray-400 hover:border-amber-200 hover:text-amber-500"
+                    )}
+                  >
+                    <TrendingUp className="w-5 h-5" />
+                    Anual Promedio
+                  </button>
+                </div>
+              </div>
+            </div>
 
         {/* Step 2: Input Mode */}
         <div className={cn("mb-10 transition-all duration-500", !analysisMode && "opacity-30 pointer-events-none grayscale")}>
@@ -706,19 +842,21 @@ export default function GenerationCalculator() {
 
         {/* System Parameters */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 pt-4 border-t border-gray-50">
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">kWp Instalados</label>
-            <div className="relative">
-              <Grid3X3 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input 
-                type="number" 
-                value={kwp}
-                onChange={(e) => setKwp(e.target.value)}
-                placeholder="Ingrese kWp"
-                className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
-              />
+          {!(projectType === 'new' && attachedInvoice) && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">kWp Instalados</label>
+              <div className="relative">
+                <Grid3X3 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input 
+                  type="number" 
+                  value={kwp}
+                  onChange={(e) => setKwp(e.target.value)}
+                  placeholder="Ingrese kWp"
+                  className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
+                />
+              </div>
             </div>
-          </div>
+          )}
           <div className="space-y-2">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">
               Power Ratio (PR)
@@ -766,7 +904,71 @@ export default function GenerationCalculator() {
         </div>
       </div>
     </div>
+          </>
+        )}
   </section>
+
+      {/* Invoice Prompt Modal */}
+      <AnimatePresence>
+        {showInvoicePromptModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-[32px] shadow-2xl border border-gray-100 p-8 max-w-md w-full space-y-6 relative"
+            >
+              <div className="absolute top-4 right-4">
+                <button
+                  onClick={() => {
+                    setShowInvoicePromptModal(false);
+                    setProjectType(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="space-y-2 text-center">
+                <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Receipt className="w-8 h-8 text-emerald-500" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900">¿Desea adjuntar Factura de servicios?</h3>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  Adjuntar una factura nos permite extraer automáticamente los datos necesarios para un análisis más preciso.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() => {
+                    setShowInvoicePromptModal(false);
+                    setAttachedInvoice(false);
+                  }}
+                  className="px-6 py-3 bg-gray-50 text-gray-600 rounded-2xl font-bold hover:bg-gray-100 transition-all border border-gray-100"
+                >
+                  No
+                </button>
+                <button
+                  onClick={() => {
+                    setShowInvoicePromptModal(false);
+                    setShowInvoiceView(true);
+                    setAttachedInvoice(true);
+                  }}
+                  className="px-6 py-3 bg-emerald-500 text-white rounded-2xl font-bold hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-100"
+                >
+                  Sí
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Adjustment Modal */}
       <AnimatePresence>
@@ -940,6 +1142,23 @@ export default function GenerationCalculator() {
                     </div>
                   </div>
 
+                  {/* kWp Required */}
+                  {lastSearchedParams?.isAutoKwp && (
+                    <div className="bg-indigo-50/30 rounded-3xl p-6 border border-indigo-100/50">
+                      <p className="text-[10px] font-black text-indigo-600/60 uppercase tracking-widest mb-2">
+                        kWp requeridos para el sistema
+                      </p>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-4xl font-black text-indigo-600 tracking-tight">
+                          {(lastSearchedParams?.kwp ?? 0).toFixed(2)}
+                        </span>
+                        <span className="text-lg font-bold text-indigo-500">
+                          kWp
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Generation Result */}
                   <div className="bg-amber-50/30 rounded-3xl p-6 border border-amber-100/50">
                     <p className="text-[10px] font-black text-amber-600/60 uppercase tracking-widest mb-2">
@@ -957,6 +1176,21 @@ export default function GenerationCalculator() {
                       </span>
                     </div>
                   </div>
+
+                  {savedInvoiceData?.energiaProm && irradianceResult?.average && powerRatio && (
+                    <div className="bg-emerald-50 rounded-3xl p-6 border border-emerald-100">
+                      <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-2">
+                        Requerimiento según Factura
+                      </p>
+                      <p className="text-sm text-emerald-800 leading-relaxed">
+                        Para cubrir un consumo promedio de {savedInvoiceData.energiaProm} kWh/mes, se requiere instalar aproximadamente{' '}
+                        <span className="font-black text-emerald-600 text-lg">
+                          {((parseFloat(savedInvoiceData.energiaProm.replace(/[^0-9.]/g, '')) / 30) / (parseFloat(powerRatio) * irradianceResult.average)).toFixed(2)} kWp
+                        </span>
+                        .
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-8 pt-6 border-t border-gray-50 flex justify-center">
@@ -970,81 +1204,9 @@ export default function GenerationCalculator() {
                 </div>
               </div>
             </div>
-          </motion.div>
-
-          {/* Saved Invoice Data Section */}
-          {savedInvoiceData && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-[32px] p-8 shadow-sm border border-gray-100"
-            >
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center">
-                    <Receipt className="w-6 h-6 text-emerald-500" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900">Datos de Facturación Guardados</h3>
-                    <p className="text-sm text-gray-500">Información extraída de la última factura cargada</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setSavedInvoiceData(null)}
-                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                  title="Eliminar datos guardados"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {[
-                  { label: 'Cliente', value: savedInvoiceData.cliente },
-                  { label: 'Contrato', value: savedInvoiceData.contrato },
-                  ...(savedInvoiceData.capacidadInstalada ? [
-                    { label: 'Capacidad Instalada', value: savedInvoiceData.capacidadInstalada },
-                    { label: 'Importó / Consumo', value: savedInvoiceData.importoConsumo },
-                    { label: 'Excedentes', value: savedInvoiceData.excedentes },
-                    { label: 'Saldo', value: savedInvoiceData.saldo },
-                  ] : [
-                    { label: 'Energía (Consumo)', value: savedInvoiceData.energia },
-                    { label: 'Energía PROM', value: savedInvoiceData.energiaProm },
-                  ]),
-                  { label: 'Comercialización', value: savedInvoiceData.comercializacion },
-                  { label: 'Generación', value: savedInvoiceData.generacion },
-                  { label: 'Total Energía', value: savedInvoiceData.totalEnergia, highlight: true },
-                ].map((item, idx) => (
-                  <div 
-                    key={idx}
-                    className={cn(
-                      "p-5 rounded-2xl border transition-all",
-                      item.highlight 
-                        ? "bg-emerald-50 border-emerald-100 md:col-span-2 lg:col-span-1" 
-                        : "bg-gray-50 border-gray-100"
-                    )}
-                  >
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">{item.label}</p>
-                    <p className={cn(
-                      "font-bold truncate",
-                      item.highlight ? "text-xl text-emerald-700" : "text-sm text-gray-900"
-                    )}>
-                      {item.value}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-8 p-4 bg-blue-50/50 border border-blue-100 rounded-2xl flex items-start gap-3">
-                <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
-                <p className="text-xs text-blue-700 leading-relaxed">
-                  Estos datos pueden ser utilizados para realizar comparativos entre la generación estimada y el consumo real facturado.
-                </p>
-              </div>
             </motion.div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
       </AnimatePresence>
     </div>
   );

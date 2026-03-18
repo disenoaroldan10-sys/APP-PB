@@ -51,7 +51,7 @@ interface ExtractedData {
 }
 
 export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentProps) {
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [invoiceType, setInvoiceType] = useState<'AGPE' | 'CONVENCIONAL'>('AGPE');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -60,21 +60,42 @@ export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentP
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files);
       
-      // Increased limit to 10MB, but we'll process it on the client
-      if (selectedFile.size > 10 * 1024 * 1024) {
-        setErrorMessage('El archivo es demasiado grande (máx 10MB).');
+      if (files.length + newFiles.length > 3) {
+        setErrorMessage('Puedes adjuntar un máximo de 3 archivos.');
         setUploadStatus('error');
         return;
       }
 
-      setFile(selectedFile);
-      setUploadStatus('idle');
-      setErrorMessage(null);
-      setExtractedData(null);
+      const validFiles = newFiles.filter((file: File) => {
+        if (file.size > 10 * 1024 * 1024) {
+          setErrorMessage(`El archivo ${file.name} es demasiado grande (máx 10MB).`);
+          setUploadStatus('error');
+          return false;
+        }
+        return true;
+      });
+
+      if (validFiles.length > 0) {
+        setFiles(prev => [...prev, ...validFiles]);
+        setUploadStatus('idle');
+        setErrorMessage(null);
+        setExtractedData(null);
+      }
     }
+    // Reset input value so the same file can be selected again if removed
+    if (e.target) {
+      e.target.value = '';
+    }
+  };
+
+  const removeFile = (indexToRemove: number) => {
+    setFiles(prev => prev.filter((_, index) => index !== indexToRemove));
+    setUploadStatus('idle');
+    setErrorMessage(null);
+    setExtractedData(null);
   };
 
   const convertPdfToImage = async (file: File): Promise<string> => {
@@ -173,57 +194,57 @@ export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentP
   };
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (files.length === 0) return;
     setIsUploading(true);
     setUploadStatus('idle');
 
     try {
-      let base64 = '';
-      let mimeType = file.type;
-      const fileName = file.name.toLowerCase();
-      
-      console.log(`Processing file: ${file.name}, type: ${file.type}, size: ${(file.size / (1024 * 1024)).toFixed(2)} MB`);
+      const processedFiles = await Promise.all(files.map(async (file) => {
+        let base64 = '';
+        let mimeType = file.type;
+        const fileName = file.name.toLowerCase();
+        
+        console.log(`Processing file: ${file.name}, type: ${file.type}, size: ${(file.size / (1024 * 1024)).toFixed(2)} MB`);
 
-      if (file.type.startsWith('image/')) {
-        console.log('Compressing image...');
-        base64 = await compressImage(file);
-        mimeType = 'image/jpeg';
-      } else if (file.type === 'application/pdf' || fileName.endsWith('.pdf')) {
-        console.log('Converting PDF to image...');
-        try {
-          base64 = await convertPdfToImage(file);
+        if (file.type.startsWith('image/')) {
+          console.log('Compressing image...');
+          base64 = await compressImage(file);
           mimeType = 'image/jpeg';
-        } catch (pdfError: any) {
-          console.error('PDF conversion failed:', pdfError);
-          throw new Error('No se pudo procesar el PDF. Intenta subir una imagen de la factura.');
+        } else if (file.type === 'application/pdf' || fileName.endsWith('.pdf')) {
+          console.log('Converting PDF to image...');
+          try {
+            base64 = await convertPdfToImage(file);
+            mimeType = 'image/jpeg';
+          } catch (pdfError: any) {
+            console.error('PDF conversion failed:', pdfError);
+            throw new Error(`No se pudo procesar el PDF ${file.name}. Intenta subir una imagen de la factura.`);
+          }
+        } else {
+          console.log('Using raw file data (fallback)...');
+          base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => {
+              const res = reader.result as string;
+              resolve(res.split(',')[1]);
+            };
+            reader.onerror = error => reject(error);
+          });
         }
-      } else {
-        console.log('Using raw file data (fallback)...');
-        // For other files, just read as base64 (fallback)
-        base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onload = () => {
-            const res = reader.result as string;
-            resolve(res.split(',')[1]);
-          };
-          reader.onerror = error => reject(error);
-        });
-      }
+        return { base64, mimeType };
+      }));
 
       const payload = JSON.stringify({
-        base64,
-        mimeType,
+        files: processedFiles,
         invoiceType
       });
 
       // Vercel has a 4.5MB limit for the entire request body
-      // We check the payload size here to catch it before sending
       const payloadSizeInMB = new TextEncoder().encode(payload).length / (1024 * 1024);
       console.log(`Payload size: ${payloadSizeInMB.toFixed(2)} MB`);
 
       if (payloadSizeInMB > 4.4) {
-        throw new Error('El archivo procesado sigue siendo demasiado grande para el servidor. Intenta con un archivo más pequeño o de menor resolución.');
+        throw new Error('Los archivos procesados son demasiado grandes para el servidor. Intenta con menos archivos o de menor resolución.');
       }
 
       const response = await fetch('/api/extract-invoice', {
@@ -246,10 +267,9 @@ export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentP
             console.error('Failed to parse error JSON:', e);
           }
         } else {
-          // If not JSON, it might be a 413 error from Vercel (HTML)
           const text = await response.text();
           if (response.status === 413 || text.includes('Request Entity Too Large')) {
-            errorMsg = 'El archivo es demasiado grande para el servidor de Vercel (límite 4.5MB). Intenta con una imagen o un PDF más pequeño.';
+            errorMsg = 'Los archivos son demasiado grandes para el servidor de Vercel (límite 4.5MB). Intenta con imágenes más pequeñas.';
           } else {
             console.error('Server returned non-JSON error:', text);
           }
@@ -330,7 +350,7 @@ export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentP
               className={cn(
                 "border-2 border-dashed rounded-[24px] p-8 text-center transition-all flex flex-col justify-center",
                 extractedData ? "min-h-[200px]" : "min-h-[300px]",
-                file ? "border-emerald-200 bg-emerald-50/30" : "border-gray-200 hover:border-emerald-300 hover:bg-gray-50/50"
+                files.length > 0 ? "border-emerald-200 bg-emerald-50/30" : "border-gray-200 hover:border-emerald-300 hover:bg-gray-50/50"
               )}
             >
               <input 
@@ -339,6 +359,7 @@ export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentP
                 className="hidden" 
                 onChange={handleFileChange}
                 accept=".pdf,image/*"
+                multiple
               />
               <label htmlFor="invoice-upload" className="cursor-pointer block space-y-4">
                 <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto">
@@ -346,18 +367,41 @@ export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentP
                 </div>
                 <div>
                   <p className="text-lg font-bold text-gray-900">
-                    {file ? file.name : 'Selecciona tu factura'}
+                    {files.length > 0 ? `${files.length} archivo(s) seleccionado(s)` : 'Selecciona tu factura'}
                   </p>
                   <p className="text-sm text-gray-500">
                     Arrastra y suelta o haz clic para buscar (PDF o Imagen)
                   </p>
                   <p className="text-[10px] text-amber-600 font-medium mt-1">
-                    Nota: Soporta archivos de hasta 10MB. Los PDFs grandes se procesan automáticamente.
+                    Nota: Puedes adjuntar hasta 3 archivos (máx 10MB c/u).
                   </p>
                 </div>
               </label>
 
-              {file && !extractedData && (
+              {files.length > 0 && !extractedData && (
+                <div className="mt-6 space-y-2">
+                  {files.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <FileText className="w-5 h-5 text-emerald-500 shrink-0" />
+                        <span className="text-sm font-medium text-gray-700 truncate">{file.name}</span>
+                      </div>
+                      <button 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          removeFile(index);
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all shrink-0"
+                        title="Eliminar archivo"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {files.length > 0 && !extractedData && (
                 <motion.div 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -478,7 +522,7 @@ export default function InvoiceAttachment({ onBack, onSave }: InvoiceAttachmentP
                     <button 
                       onClick={() => {
                         setExtractedData(null);
-                        setFile(null);
+                        setFiles([]);
                         setUploadStatus('idle');
                       }}
                       className="text-xs font-bold text-red-500 hover:text-red-600 transition-colors"
