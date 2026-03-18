@@ -285,6 +285,7 @@ export default function GenerationCalculator({ savedInvoiceData, setSavedInvoice
   const handleClear = () => {
     handleClearInputs();
     handleClearResults();
+    setSavedInvoiceData(null);
   };
 
   if (showInvoiceView) {
@@ -393,6 +394,15 @@ export default function GenerationCalculator({ savedInvoiceData, setSavedInvoice
                 )}
                 <h2 className="text-2xl font-black tracking-tight text-gray-900">Pronóstico de Generación Solar</h2>
               </div>
+              {projectType && (
+                <button 
+                  onClick={handleClear}
+                  className="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-all flex items-center gap-2 text-sm"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Eliminar registro
+                </button>
+              )}
             </div>
           </div>
 
@@ -878,13 +888,6 @@ export default function GenerationCalculator({ savedInvoiceData, setSavedInvoice
 
         <div className="mt-6 flex justify-end gap-3 flex-wrap">
           <button 
-            onClick={handleClearInputs}
-            className="px-6 py-3 bg-gray-50 text-gray-500 rounded-2xl font-bold hover:bg-gray-100 transition-all flex items-center gap-2 group/clear"
-          >
-            <Eraser className="w-4 h-4 transition-transform group-hover/clear:scale-110" />
-            Limpiar campos
-          </button>
-          <button 
             onClick={handleCalculate}
             disabled={loading}
             className="px-6 py-3 bg-amber-500 text-white rounded-2xl font-bold shadow-lg shadow-amber-100 hover:bg-amber-600 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1162,7 +1165,7 @@ export default function GenerationCalculator({ savedInvoiceData, setSavedInvoice
                   {/* Generation Result */}
                   <div className="bg-amber-50/30 rounded-3xl p-6 border border-amber-100/50">
                     <p className="text-[10px] font-black text-amber-600/60 uppercase tracking-widest mb-2">
-                      GENERACIÓN ESTIMADA
+                      Generación estimada {lastSearchedParams?.mode === 'monthly' ? months[lastSearchedParams?.month ?? 0] : 'Anual'}
                     </p>
                     <div className="flex items-baseline gap-2">
                       <span className="text-5xl font-black text-amber-600 tracking-tight">
@@ -1183,24 +1186,14 @@ export default function GenerationCalculator({ savedInvoiceData, setSavedInvoice
                         Requerimiento según Factura
                       </p>
                       <p className="text-sm text-emerald-800 leading-relaxed">
-                        Según el consumo promedio en la factura de energia, se recomienda la instalación en panales solares de{' '}
+                        Para cubrir un consumo promedio de <span className="font-bold">{parseFloat(savedInvoiceData.energiaProm.replace(/[^0-9.]/g, ''))} kWh/mes</span>, se requiere instalar aproximadamente{' '}
                         <span className="font-black text-emerald-600 text-lg">
-                          {((parseFloat(savedInvoiceData.energiaProm.replace(/[^0-9.]/g, '')) / 30) / (parseFloat(powerRatio) * irradianceResult.average)).toFixed(2)}
+                          {((parseFloat(savedInvoiceData.energiaProm.replace(/[^0-9.]/g, '')) / 30) / (parseFloat(powerRatio) * irradianceResult.average)).toFixed(2)} kWp
                         </span>
-                        kWp.
+                        .
                       </p>
                     </div>
                   )}
-                </div>
-
-                <div className="mt-8 pt-6 border-t border-gray-50 flex justify-center">
-                  <button 
-                    onClick={handleClearResults}
-                    className="px-8 py-3 bg-red-50 text-red-600 rounded-2xl font-bold hover:bg-red-100 transition-all flex items-center gap-2 group/delete shadow-sm"
-                  >
-                    <Trash2 className="w-4 h-4 transition-transform group-hover/delete:scale-110" />
-                    Borrar Resultados
-                  </button>
                 </div>
               </div>
             </div>
