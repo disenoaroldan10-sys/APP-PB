@@ -6,18 +6,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { base64, mimeType, invoiceType } = req.body;
+  const { files, invoiceType } = req.body;
 
   // Log request size for debugging in Vercel
-  const sizeInMB = Buffer.from(base64 || '', 'base64').length / (1024 * 1024);
-  console.log(`Extract invoice request: ${mimeType}, size: ${sizeInMB.toFixed(2)} MB, type: ${invoiceType}`);
+  const sizeInMB = JSON.stringify(files || []).length / (1024 * 1024);
+  console.log(`Extract invoice request: ${files?.length} files, size: ${sizeInMB.toFixed(2)} MB, type: ${invoiceType}`);
 
-  if (!base64 || !mimeType) {
-    return res.status(400).json({ error: 'Missing base64 data or mimeType' });
+  if (!files || !Array.isArray(files) || files.length === 0) {
+    return res.status(400).json({ error: 'Missing files data' });
   }
 
   try {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+    const apiKey = process.env.MI_CLAVE_GEMINI || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
     
     if (!apiKey || apiKey === 'your_api_key_here' || apiKey.startsWith('TODO') || apiKey.includes('Free Tier')) {
       return res.status(500).json({ 
@@ -33,7 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let requiredFields: string[] = [];
 
     if (invoiceType === 'CONVENCIONAL') {
-      prompt = `Analiza esta factura de energía CONVENCIONAL y extrae los siguientes campos en formato JSON. Si no encuentras un valor, pon 'No especificado'. 
+      prompt = `Analiza esta factura de energía CONVENCIONAL (puede estar dividida en varias imágenes) y extrae los siguientes campos en formato JSON. Si no encuentras un valor, pon 'No especificado'. 
 
 Campos específicos:
 - Numero de contrato: El número de contrato o cuenta.
@@ -55,7 +55,7 @@ Campos específicos:
       requiredFields = ["cliente", "contrato", "energia", "energiaProm", "comercializacion", "generacion", "totalEnergia"];
     } else {
       // Default to AGPE
-      prompt = "Analiza esta factura de energía AGPE (Autogeneración a Pequeña Escala) y extrae los siguientes campos en formato JSON. Si no encuentras un valor, pon 'No especificado'. Campos: Cliente, Capacidad instalada, Importo/consumo, Excedentes, Saldo, Comercialización, Generación, Numero de contrato, Total a pagar.";
+      prompt = "Analiza esta factura de energía AGPE (Autogeneración a Pequeña Escala) (puede estar dividida en varias imágenes) y extrae los siguientes campos en formato JSON. Si no encuentras un valor, pon 'No especificado'. Campos: Cliente, Capacidad instalada, Importo/consumo, Excedentes, Saldo, Comercialización, Generación, Numero de contrato, Total a pagar.";
       properties = {
         cliente: { type: Type.STRING },
         capacidadInstalada: { type: Type.STRING },
@@ -75,21 +75,23 @@ Campos específicos:
     const maxAttempts = 3;
     let lastError = null;
 
+    const parts: any[] = [{ text: prompt }];
+    for (const file of files) {
+      parts.push({
+        inlineData: {
+          mimeType: file.mimeType,
+          data: file.base64
+        }
+      });
+    }
+
     while (attempts < maxAttempts) {
       try {
         const response = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
+          model: "gemini-3.1-flash-lite-preview",
           contents: [
             {
-              parts: [
-                { text: prompt },
-                {
-                  inlineData: {
-                    mimeType,
-                    data: base64
-                  }
-                }
-              ]
+              parts: parts
             }
           ],
           config: {

@@ -1162,7 +1162,7 @@ export default function GenerationCalculator({ savedInvoiceData, setSavedInvoice
                   {/* Generation Result */}
                   <div className="bg-amber-50/30 rounded-3xl p-6 border border-amber-100/50">
                     <p className="text-[10px] font-black text-amber-600/60 uppercase tracking-widest mb-2">
-                      Generación estimada {lastSearchedParams?.mode === 'monthly' ? months[lastSearchedParams?.month ?? 0] : 'Anual'}
+                      GENERACIÓN ESTIMADA
                     </p>
                     <div className="flex items-baseline gap-2">
                       <span className="text-5xl font-black text-amber-600 tracking-tight">
@@ -1183,11 +1183,11 @@ export default function GenerationCalculator({ savedInvoiceData, setSavedInvoice
                         Requerimiento según Factura
                       </p>
                       <p className="text-sm text-emerald-800 leading-relaxed">
-                        Para cubrir un consumo promedio de {savedInvoiceData.energiaProm} kWh/mes, se requiere instalar aproximadamente{' '}
+                        Según el consumo promedio en la factura de energia, se recomienda la instalación en panales solares de{' '}
                         <span className="font-black text-emerald-600 text-lg">
-                          {((parseFloat(savedInvoiceData.energiaProm.replace(/[^0-9.]/g, '')) / 30) / (parseFloat(powerRatio) * irradianceResult.average)).toFixed(2)} kWp
+                          {((parseFloat(savedInvoiceData.energiaProm.replace(/[^0-9.]/g, '')) / 30) / (parseFloat(powerRatio) * irradianceResult.average)).toFixed(2)}
                         </span>
-                        .
+                        kWp.
                       </p>
                     </div>
                   )}
