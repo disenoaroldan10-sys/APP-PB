@@ -98,7 +98,18 @@ export default function SolaxMonitoring() {
       }
     } catch (err: any) {
       console.error("Error fetching SolaX data:", err);
-      setError(err.response?.data?.error || err.message || 'Error de conexión con SolaX Cloud');
+      
+      let errorMessage = 'Error de conexión con SolaX Cloud';
+      if (err.response?.data) {
+        const data = err.response.data;
+        errorMessage = typeof data.error === 'string' ? data.error : 
+                       typeof data.details === 'string' ? data.details : 
+                       typeof data === 'string' ? data : err.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
       setPlantData(null);
     } finally {
       setIsLoading(false);
