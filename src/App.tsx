@@ -314,7 +314,7 @@ export default function App() {
                         <div className={cn("p-2 rounded-lg transition-colors", currentView === 'solax' ? "bg-emerald-100" : "bg-gray-50 group-hover/item:bg-emerald-100")}>
                           <Server className="w-4 h-4" />
                         </div>
-                        <span className={cn("text-sm font-bold group-hover/item:text-emerald-600", currentView === 'solax' && "text-emerald-600")}>Monitoreo SolaX</span>
+                        <span className={cn("text-sm font-bold group-hover/item:text-emerald-600", currentView === 'solax' && "text-emerald-600")}>API'S SSFV</span>
                       </button>
 
                       <div className="px-3 py-2 mt-2 mb-1 border-t border-gray-50 pt-3">
