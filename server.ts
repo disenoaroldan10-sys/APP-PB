@@ -206,12 +206,16 @@ Campos específicos:
     try {
       const response = await axios.post(
         'https://global.solaxcloud.com/api/v2/dataAccess/historyInfo/get',
-        { wifiSn, date },
+        { sn: wifiSn, date },
         { headers: { tokenId } }
       );
+      console.log('SolaX History Response:', JSON.stringify(response.data));
       res.json(response.data);
     } catch (error: any) {
       console.error('Error fetching SolaX history data:', error.message);
+      if (error.response) {
+        console.error('SolaX API Error Response:', JSON.stringify(error.response.data));
+      }
       res.status(error.response?.status || 500).json({ 
         error: 'Error al conectar con SolaX Cloud', 
         details: error.message 
