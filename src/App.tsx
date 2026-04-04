@@ -27,6 +27,7 @@ import {
   Calculator,
   FileSearch,
   Receipt,
+  Server,
   Zap,
   LayoutDashboard
 } from 'lucide-react';
@@ -37,6 +38,7 @@ import { format } from 'date-fns';
 import { fetchPrecioBolsa, getMonthRange, XmPriceData, listMetrics } from './services/xmService';
 import PhasorCalculator from './components/PhasorCalculator';
 import GenerationCalculator, { ExtractedData } from './components/GenerationCalculator';
+import SolaxMonitoring from './components/SolaxMonitoring';
 
 // Utility for tailwind classes
 function cn(...inputs: ClassValue[]) {
@@ -94,7 +96,7 @@ interface SelectedMonth {
 }
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'calculos' | 'analizador' | 'cu' | 'fasoriales'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'calculos' | 'analizador' | 'cu' | 'fasoriales' | 'solax'>('dashboard');
   const [selectedMonths, setSelectedMonths] = useState<SelectedMonth[]>([]);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [showYearMatrix, setShowYearMatrix] = useState(false);
@@ -300,6 +302,22 @@ export default function App() {
                       </button>
 
                       <div className="px-3 py-2 mt-2 mb-1 border-t border-gray-50 pt-3">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Monitoreo</p>
+                      </div>
+                      <button 
+                        onClick={() => { setCurrentView('solax'); setIsMenuOpen(false); }}
+                        className={cn(
+                          "w-full text-left px-4 py-3 rounded-xl transition-all flex items-center gap-3 group/item",
+                          currentView === 'solax' ? "bg-emerald-50 text-emerald-600 shadow-sm" : "hover:bg-emerald-50 text-gray-700"
+                        )}
+                      >
+                        <div className={cn("p-2 rounded-lg transition-colors", currentView === 'solax' ? "bg-emerald-100" : "bg-gray-50 group-hover/item:bg-emerald-100")}>
+                          <Server className="w-4 h-4" />
+                        </div>
+                        <span className={cn("text-sm font-bold group-hover/item:text-emerald-600", currentView === 'solax' && "text-emerald-600")}>Monitoreo SolaX</span>
+                      </button>
+
+                      <div className="px-3 py-2 mt-2 mb-1 border-t border-gray-50 pt-3">
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Cálculos eléctricos</p>
                       </div>
                       <button 
@@ -329,6 +347,7 @@ export default function App() {
                     {currentView === 'analizador' && "Analizador"}
                     {currentView === 'cu' && "Cu kW/h"}
                     {currentView === 'fasoriales' && "Cálculos de diagramas fasoriales"}
+                    {currentView === 'solax' && "Monitoreo de Plantas Solares"}
                   </h1>
                 </div>
                 {currentView === 'dashboard' && (
@@ -345,7 +364,8 @@ export default function App() {
                 calculos: { label: 'Generación', color: 'bg-amber-500' },
                 analizador: { label: 'Calidad Energia', color: 'bg-blue-500' },
                 cu: { label: 'Análisis Tarifario', color: 'bg-rose-500' },
-                fasoriales: { label: 'Circuito RLC', color: 'bg-violet-500' }
+                fasoriales: { label: 'Circuito RLC', color: 'bg-violet-500' },
+                solax: { label: 'SolaX Cloud', color: 'bg-emerald-500' }
               };
               const config = configs[currentView] || configs.dashboard;
               return (
@@ -721,6 +741,15 @@ export default function App() {
                 savedInvoiceData={savedInvoiceData} 
                 setSavedInvoiceData={setSavedInvoiceData} 
               />
+            </motion.div>
+          ) : currentView === 'solax' ? (
+            <motion.div
+              key="solax"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <SolaxMonitoring />
             </motion.div>
           ) : (
             <motion.div
