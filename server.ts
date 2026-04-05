@@ -191,8 +191,7 @@ Campos específicos:
   });
 
   // Proxy endpoint for SolaX History API V2
-  app.post('/api/solax/history-v2', async (req, res) => {
-    console.log('Received request for /api/solax/history-v2:', req.body);
+  app.post('/api/solax/history', async (req, res) => {
     const { wifiSn, date } = req.body;
     if (!wifiSn || !date) return res.status(400).json({ error: 'wifiSn and date are required' });
 
@@ -207,16 +206,41 @@ Campos específicos:
     try {
       const response = await axios.post(
         'https://global.solaxcloud.com/api/v2/dataAccess/historyInfo/get',
-        { sn: wifiSn, date },
+        { wifiSn, date },
         { headers: { tokenId } }
       );
-      console.log('SolaX History Response:', JSON.stringify(response.data));
       res.json(response.data);
     } catch (error: any) {
       console.error('Error fetching SolaX history data:', error.message);
-      if (error.response) {
-        console.error('SolaX API Error Response:', JSON.stringify(error.response.data));
-      }
+      res.status(error.response?.status || 500).json({ 
+        error: 'Error al conectar con SolaX Cloud', 
+        details: error.message 
+      });
+    }
+  });
+
+  // Proxy endpoint for SolaX History API V2 (alias for history-v2)
+  app.post('/api/solax/history-v2', async (req, res) => {
+    const { wifiSn, date } = req.body;
+    if (!wifiSn || !date) return res.status(400).json({ error: 'wifiSn and date are required' });
+
+    const tokenId = process.env.SOLAX_TOKEN_ID;
+    if (!tokenId) {
+      return res.status(500).json({ 
+        error: 'Configuración incompleta',
+        details: 'SOLAX_TOKEN_ID no está configurado en las variables de entorno del servidor.' 
+      });
+    }
+
+    try {
+      const response = await axios.post(
+        'https://global.solaxcloud.com/api/v2/dataAccess/historyInfo/get',
+        { wifiSn, date },
+        { headers: { tokenId } }
+      );
+      res.json(response.data);
+    } catch (error: any) {
+      console.error('Error fetching SolaX history data:', error.message);
       res.status(error.response?.status || 500).json({ 
         error: 'Error al conectar con SolaX Cloud', 
         details: error.message 
