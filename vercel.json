@@ -5,6 +5,10 @@
       "destination": "/api/growatt-proxy"
     },
     {
+      "source": "/api/solax/history-v2",
+      "destination": "/api/solax/history"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/$1"
     }
