@@ -196,8 +196,8 @@ export default function SolaxMonitoring() {
       await Promise.all(plant.wifiSns.map(async (sn) => {
         try {
           const [startRes, endRes] = await Promise.all([
-            axios.post('/api/solax/history', { wifiSn: sn.trim(), date: baselineDateStr }),
-            axios.post('/api/solax/history', { wifiSn: sn.trim(), date: end })
+            axios.post('/api/solax/history-v2', { wifiSn: sn.trim(), date: baselineDateStr }),
+            axios.post('/api/solax/history-v2', { wifiSn: sn.trim(), date: end })
           ]);
 
           const startData = startRes.data?.result?.[0];

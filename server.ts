@@ -191,7 +191,8 @@ Campos específicos:
   });
 
   // Proxy endpoint for SolaX History API V2
-  app.post('/api/solax/history', async (req, res) => {
+  app.post('/api/solax/history-v2', async (req, res) => {
+    console.log('Received request for /api/solax/history-v2:', req.body);
     const { wifiSn, date } = req.body;
     if (!wifiSn || !date) return res.status(400).json({ error: 'wifiSn and date are required' });
 
